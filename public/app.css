@@ -237,3 +237,72 @@ body {
   z-index: 1000;
   pointer-events: none;
 }
+.cluster-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #666666;
+  margin-bottom: 16px;
+}
+.cluster-description {
+  color: #888;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.cluster-section {
+  margin-bottom: 16px;
+}
+.cluster-section-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #333;
+}
+.cluster-node-item {
+  margin: 12px 0;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #ddd;
+}
+.cluster-node-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.cluster-node-type {
+  margin-right: 8px;
+  font-size: 16px;
+}
+.cluster-node-name {
+  font-weight: bold;
+  color: #333;
+  font-size: 16px;
+}
+.cluster-recipe-full-details,
+.cluster-material-full-details {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+.cluster-recipe-meta {
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #666;
+}
+.cluster-recipe-meta div {
+  margin: 4px 0;
+}
+.cluster-recipe-section,
+.cluster-material-section {
+  margin: 12px 0;
+}
+.cluster-recipe-section .recipe-section-title,
+.cluster-material-section .recipe-section-title {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.cluster-recipe-section .recipe-item,
+.cluster-material-section .recipe-item {
+  margin: 3px 0;
+  font-size: 13px;
+}

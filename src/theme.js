@@ -31,6 +31,11 @@ export const theme = {
       fill: "var(--node-recipe-fill)",
       radius: 12,
     },
+    cluster: {
+      fill: "#666666",
+      radius: 50,
+      opacity: 0.2,
+    },
     stroke: "var(--node-stroke)",
     strokeWidth: 2,
   },

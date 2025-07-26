@@ -63,7 +63,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     defs.append("marker")
       .attr("id", "arrowhead-recipe")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 22) // 12 (recipe radius) + 10 (marker length)
+      .attr("refX", 10)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -76,7 +76,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     defs.append("marker")
       .attr("id", "arrowhead-material")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 18) // 8 (material radius) + 10 (marker length)
+      .attr("refX", 10)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -89,7 +89,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     defs.append("marker")
       .attr("id", "arrowhead-cluster")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 60) // 50 (cluster radius) + 10 (marker length)
+      .attr("refX", 10)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -229,9 +229,11 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       })
       .attr("marker-end-fill", "#600");
 
-    const node = g.append("g")
+    // First render cluster nodes
+    const clusterNodeGroup = g.append("g").attr("class", "cluster-nodes");
+    const _clusterNodes = clusterNodeGroup
       .selectAll("g")
-      .data(allNodesWithPositions)
+      .data(allNodesWithPositions.filter(d => d.type === "cluster"))
       .join("g")
       .call(
         d3.drag()
@@ -240,11 +242,159 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           .on("end", dragended),
       );
 
+    // Then render regular and internal nodes on top
+    const regularNodeGroup = g.append("g").attr("class", "regular-nodes");
+    const node = regularNodeGroup
+      .selectAll("g")
+      .data(allNodesWithPositions.filter(d => d.type !== "cluster"))
+      .join("g")
+      .call(
+        d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended),
+      );
+
+    // Combine all nodes for event handling
+    const _allNodes = g.selectAll("g g");
+
+    // Add circles to cluster nodes
+    clusterNodeGroup.selectAll("g").append("circle")
+      .attr("r", () => theme.nodes.cluster.radius)
+      .attr("fill", theme.nodes.cluster.fill)
+      .attr("stroke", "none")
+      .attr("stroke-width", 0)
+      .attr("opacity", theme.nodes.cluster.opacity)
+      .on("click", function (event, d) {
+        event.stopPropagation();
+        onNodeSelect({
+          ...d,
+          displayInfo: {
+            type: "cluster",
+            nodeCount: d.clusteredNodes.length,
+            nodes: d.clusteredNodes,
+          },
+        });
+      })
+      .on("mouseover", function (event, d) {
+        const nodeData = d;
+        const clusterInfo = nodeData.clusteredNodes.map((node) =>
+          `<div style="margin: 2px 0; font-size: 11px;">${node.name} (${node.type})</div>`
+        ).join("");
+
+        const tooltipContent = `
+          <div style="font-weight: bold; color: #666666; margin-bottom: 8px;">🔗 Cluster: ${nodeData.clusteredNodes.length} nodes</div>
+          <div style="margin-bottom: 4px;"><strong>Clustered nodes:</strong></div>
+          ${clusterInfo}
+          <div style="margin-top: 8px; font-size: 10px; color: ${theme.colors.lightGray};">
+            These nodes have identical input/output connections
+          </div>
+        `;
+
+        tooltip
+          .style("visibility", "visible")
+          .html(tooltipContent)
+          .style("left", (event.pageX + 20) + "px")
+          .style("top", (event.pageY - 20) + "px");
+
+        // Move hovered node to front by re-appending it
+        const hoveredNode = d3.select(this.parentNode);
+        hoveredNode.raise();
+
+        // Highlight connected links
+        link
+          .attr("stroke-opacity", (linkData) => {
+            if (linkData.type === "invisible") return 0;
+            const sourceId = getSourceId(linkData);
+            const targetId = getTargetId(linkData);
+            return (sourceId === d.id || targetId === d.id)
+              ? theme.colors.highlight.opacity.full
+              : theme.colors.highlight.opacity.faded;
+          })
+          .attr("stroke-width", (linkData) => {
+            if (linkData.type === "invisible") return theme.links.width.default;
+            const sourceId = getSourceId(linkData);
+            const targetId = getTargetId(linkData);
+            return (sourceId === d.id || targetId === d.id)
+              ? theme.links.width.highlighted
+              : theme.links.width.normal;
+          });
+
+        // Highlight connected nodes
+        node.select("circle")
+          .attr("opacity", (nodeData) => {
+            const isConnected = data.links.some((linkData) => {
+              if (linkData.type === "invisible") return false;
+              const sourceId = getSourceId(linkData);
+              const targetId = getTargetId(linkData);
+              return (sourceId === d.id && targetId === nodeData.id) ||
+                (targetId === d.id && sourceId === nodeData.id);
+            });
+            return isConnected
+              ? theme.colors.highlight.opacity.full
+              : theme.colors.highlight.opacity.dimmed;
+          });
+
+        node.select("text")
+          .attr("opacity", (nodeData) => {
+            const isConnected = data.links.some((linkData) => {
+              if (linkData.type === "invisible") return false;
+              const sourceId = getSourceId(linkData);
+              const targetId = getTargetId(linkData);
+              return (sourceId === d.id && targetId === nodeData.id) ||
+                (targetId === d.id && sourceId === nodeData.id);
+            });
+            return isConnected
+              ? theme.colors.highlight.opacity.full
+              : theme.colors.highlight.opacity.dimmed;
+          });
+
+        // Highlight other cluster nodes if connected
+        clusterNodeGroup.selectAll("g").select("circle")
+          .attr("opacity", (nodeData) => {
+            if (nodeData.id === d.id) {
+              return theme.nodes.cluster.opacity; // Keep current cluster at normal opacity
+            }
+            const isConnected = data.links.some((linkData) => {
+              if (linkData.type === "invisible") return false;
+              const sourceId = getSourceId(linkData);
+              const targetId = getTargetId(linkData);
+              return (sourceId === d.id && targetId === nodeData.id) ||
+                (targetId === d.id && sourceId === nodeData.id);
+            });
+            return isConnected
+              ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity
+              : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+          });
+      })
+      .on("mouseout", function (_event, _d) {
+        tooltip.style("visibility", "hidden");
+
+        // Reset all links
+        link
+          .attr(
+            "stroke-opacity",
+            (d) => d.type === "invisible" ? 0 : theme.links.opacity,
+          )
+          .attr("stroke-width", theme.links.width.normal);
+
+        // Reset all regular and internal nodes
+        node.select("circle")
+          .attr("opacity", theme.colors.highlight.opacity.full);
+
+        node.select("text")
+          .attr("opacity", theme.colors.highlight.opacity.full);
+
+        // Reset cluster nodes
+        clusterNodeGroup.selectAll("g").select("circle")
+          .attr("opacity", theme.nodes.cluster.opacity);
+      });
+
+    // Add circles to regular and internal nodes
     node.append("circle")
       .attr(
         "r",
         (d) => {
-          if (d.type === "cluster") return 50;
           if (d.isInternal) return 6;
           return d.type === "recipe"
             ? theme.nodes.recipe.radius
@@ -254,7 +404,6 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .attr(
         "fill",
         (d) => {
-          if (d.type === "cluster") return "#666666";
           if (d.isInternal) {
             return d.originalType === "recipe" || d.type === "recipe"
               ? theme.nodes.recipe.fill
@@ -265,34 +414,16 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
             : theme.nodes.material.fill;
         },
       )
-      .attr(
-        "stroke",
-        (d) => d.type === "cluster" ? "none" : theme.nodes.stroke,
-      )
-      .attr(
-        "stroke-width",
-        (d) => d.type === "cluster" ? 0 : theme.nodes.strokeWidth,
-      )
+      .attr("stroke", theme.nodes.stroke)
+      .attr("stroke-width", theme.nodes.strokeWidth)
       .attr("fill-opacity", (d) => {
-        if (d.type === "cluster") return 0.3;
         if (d.isInternal) return 0.8;
         return 1;
       })
       .on("click", function (event, d) {
         event.stopPropagation();
-        if (d.type === "cluster") {
-          onNodeSelect({
-            ...d,
-            displayInfo: {
-              type: "cluster",
-              nodeCount: d.clusteredNodes.length,
-              nodes: d.clusteredNodes,
-            },
-          });
-        } else if (!d.isInternal) {
-          onNodeSelect(d);
-        }
         if (!d.isInternal) {
+          onNodeSelect(d);
           zoomToNode(d);
         }
       })
@@ -300,20 +431,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         const nodeData = d;
 
         let tooltipContent = "";
-        if (nodeData.type === "cluster") {
-          const clusterInfo = nodeData.clusteredNodes.map((node) =>
-            `<div style="margin: 2px 0; font-size: 11px;">${node.name} (${node.type})</div>`
-          ).join("");
-
-          tooltipContent = `
-            <div style="font-weight: bold; color: #666666; margin-bottom: 8px;">🔗 Cluster: ${nodeData.clusteredNodes.length} nodes</div>
-            <div style="margin-bottom: 4px;"><strong>Clustered nodes:</strong></div>
-            ${clusterInfo}
-            <div style="margin-top: 8px; font-size: 10px; color: ${theme.colors.lightGray};">
-              These nodes have identical input/output connections
-            </div>
-          `;
-        } else if (nodeData.isInternal) {
+        if (nodeData.isInternal) {
           tooltipContent = `
             <div style="font-weight: bold; color: ${
             nodeData.type === "recipe"
@@ -473,6 +591,21 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
               ? theme.colors.highlight.opacity.full
               : theme.colors.highlight.opacity.dimmed;
           });
+
+        // Highlight cluster nodes if connected
+        clusterNodeGroup.selectAll("g").select("circle")
+          .attr("opacity", (nodeData) => {
+            const isConnected = data.links.some((linkData) => {
+              if (linkData.type === "invisible") return false;
+              const sourceId = getSourceId(linkData);
+              const targetId = getTargetId(linkData);
+              return (sourceId === d.id && targetId === nodeData.id) ||
+                (targetId === d.id && sourceId === nodeData.id);
+            });
+            return isConnected
+              ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity
+              : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+          });
       })
       .on("mouseout", function (_event, _d) {
         tooltip.style("visibility", "hidden");
@@ -485,24 +618,38 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           )
           .attr("stroke-width", theme.links.width.normal);
 
-        // Reset all nodes
+        // Reset all regular and internal nodes
         node.select("circle")
           .attr("opacity", theme.colors.highlight.opacity.full);
 
         node.select("text")
           .attr("opacity", theme.colors.highlight.opacity.full);
+
+        // Reset cluster nodes
+        clusterNodeGroup.selectAll("g").select("circle")
+          .attr("opacity", theme.nodes.cluster.opacity);
       });
 
+    // Add text labels to cluster nodes
+    clusterNodeGroup.selectAll("g").append("text")
+      .text((d) => d.name)
+      .attr("font-size", "12px")
+      .attr("font-family", theme.text.family)
+      .attr("text-anchor", "middle")
+      .attr("dy", 65)
+      .attr("fill", "#333333")
+      .attr("font-weight", "bold")
+      .style("pointer-events", "none");
+
+    // Add text labels to regular and internal nodes
     node.append("text")
       .text((d) => {
-        if (d.type === "cluster") return d.name;
         if (d.isInternal) return d.name;
         return d.name;
       })
       .attr(
         "font-size",
         (d) => {
-          if (d.type === "cluster") return "12px";
           if (d.isInternal) return "8px";
           return d.type === "recipe"
             ? theme.text.size.recipe
@@ -512,13 +659,11 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .attr("font-family", theme.text.family)
       .attr("text-anchor", "middle")
       .attr("dy", (d) => {
-        if (d.type === "cluster") return 65;
         if (d.isInternal) return 3;
         return d.type === "recipe" ? 18 : 15;
       })
-      .attr("fill", (d) => d.type === "cluster" ? "#333333" : theme.text.fill)
+      .attr("fill", theme.text.fill)
       .attr("font-weight", (d) => {
-        if (d.type === "cluster") return "bold";
         if (d.isInternal) return "normal";
         return d.type === "recipe" ? "bold" : "normal";
       })
@@ -572,6 +717,11 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           return d.target.y - (dy / distance) * targetRadius;
         });
 
+      // Update cluster node positions
+      clusterNodeGroup.selectAll("g")
+        .attr("transform", (d) => `translate(${d.x},${d.y})`);
+
+      // Update regular and internal node positions
       node
         .attr("transform", (d) => `translate(${d.x},${d.y})`);
     });

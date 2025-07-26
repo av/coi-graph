@@ -61086,6 +61086,11 @@ var theme = {
       fill: "var(--node-recipe-fill)",
       radius: 12
     },
+    cluster: {
+      fill: "#666666",
+      radius: 50,
+      opacity: 0.2
+    },
     stroke: "var(--node-stroke)",
     strokeWidth: 2
   },
@@ -61378,9 +61383,9 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     };
     const tooltip = select_default2("body").append("div").attr("class", "tooltip").style("position", "absolute").style("visibility", "hidden").style("background", theme.colors.tooltip.background).style("color", theme.colors.tooltip.text).style("padding", "12px").style("border-radius", "6px").style("font-size", "12px").style("font-family", theme.text.family).style("max-width", "300px").style("box-shadow", "0 4px 8px rgba(0, 0, 0, 0.3)").style("z-index", "1000").style("pointer-events", "none");
     const defs = svg2.append("defs");
-    defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 22).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
-    defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 18).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
-    defs.append("marker").attr("id", "arrowhead-cluster").attr("viewBox", "0 -5 10 10").attr("refX", 60).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    defs.append("marker").attr("id", "arrowhead-cluster").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     const getSourceId = (link4) => typeof link4.source === "object" ? link4.source.id : link4.source;
     const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
     const getNodeRadius = (node2) => {
@@ -61454,52 +61459,104 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       }
       return targetNode && targetNode.type === "recipe" ? "url(#arrowhead-recipe)" : "url(#arrowhead-material)";
     }).attr("marker-end-fill", "#600");
-    const node = g.append("g").selectAll("g").data(allNodesWithPositions).join("g").call(drag_default().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+    const clusterNodeGroup = g.append("g").attr("class", "cluster-nodes");
+    const _clusterNodes = clusterNodeGroup.selectAll("g").data(allNodesWithPositions.filter((d) => d.type === "cluster")).join("g").call(drag_default().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+    const regularNodeGroup = g.append("g").attr("class", "regular-nodes");
+    const node = regularNodeGroup.selectAll("g").data(allNodesWithPositions.filter((d) => d.type !== "cluster")).join("g").call(drag_default().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+    const _allNodes = g.selectAll("g g");
+    clusterNodeGroup.selectAll("g").append("circle").attr("r", () => theme.nodes.cluster.radius).attr("fill", theme.nodes.cluster.fill).attr("stroke", "none").attr("stroke-width", 0).attr("opacity", theme.nodes.cluster.opacity).on("click", function(event, d) {
+      event.stopPropagation();
+      onNodeSelect({
+        ...d,
+        displayInfo: {
+          type: "cluster",
+          nodeCount: d.clusteredNodes.length,
+          nodes: d.clusteredNodes
+        }
+      });
+    }).on("mouseover", function(event, d) {
+      const nodeData = d;
+      const clusterInfo = nodeData.clusteredNodes.map((node2) => `<div style="margin: 2px 0; font-size: 11px;">${node2.name} (${node2.type})</div>`).join("");
+      const tooltipContent = `
+          <div style="font-weight: bold; color: #666666; margin-bottom: 8px;">\u{1F517} Cluster: ${nodeData.clusteredNodes.length} nodes</div>
+          <div style="margin-bottom: 4px;"><strong>Clustered nodes:</strong></div>
+          ${clusterInfo}
+          <div style="margin-top: 8px; font-size: 10px; color: ${theme.colors.lightGray};">
+            These nodes have identical input/output connections
+          </div>
+        `;
+      tooltip.style("visibility", "visible").html(tooltipContent).style("left", event.pageX + 20 + "px").style("top", event.pageY - 20 + "px");
+      const hoveredNode = select_default2(this.parentNode);
+      hoveredNode.raise();
+      link3.attr("stroke-opacity", (linkData) => {
+        if (linkData.type === "invisible") return 0;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === d.id || targetId === d.id ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.faded;
+      }).attr("stroke-width", (linkData) => {
+        if (linkData.type === "invisible") return theme.links.width.default;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === d.id || targetId === d.id ? theme.links.width.highlighted : theme.links.width.normal;
+      });
+      node.select("circle").attr("opacity", (nodeData2) => {
+        const isConnected = data.links.some((linkData) => {
+          if (linkData.type === "invisible") return false;
+          const sourceId = getSourceId(linkData);
+          const targetId = getTargetId(linkData);
+          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
+        });
+        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+      });
+      node.select("text").attr("opacity", (nodeData2) => {
+        const isConnected = data.links.some((linkData) => {
+          if (linkData.type === "invisible") return false;
+          const sourceId = getSourceId(linkData);
+          const targetId = getTargetId(linkData);
+          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
+        });
+        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+      });
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData2) => {
+        if (nodeData2.id === d.id) {
+          return theme.nodes.cluster.opacity;
+        }
+        const isConnected = data.links.some((linkData) => {
+          if (linkData.type === "invisible") return false;
+          const sourceId = getSourceId(linkData);
+          const targetId = getTargetId(linkData);
+          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
+        });
+        return isConnected ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+      });
+    }).on("mouseout", function(_event, _d) {
+      tooltip.style("visibility", "hidden");
+      link3.attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("stroke-width", theme.links.width.normal);
+      node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
+      node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", theme.nodes.cluster.opacity);
+    });
     node.append("circle").attr("r", (d) => {
-      if (d.type === "cluster") return 50;
       if (d.isInternal) return 6;
       return d.type === "recipe" ? theme.nodes.recipe.radius : theme.nodes.material.radius;
     }).attr("fill", (d) => {
-      if (d.type === "cluster") return "#666666";
       if (d.isInternal) {
         return d.originalType === "recipe" || d.type === "recipe" ? theme.nodes.recipe.fill : theme.nodes.material.fill;
       }
       return d.type === "recipe" ? theme.nodes.recipe.fill : theme.nodes.material.fill;
-    }).attr("stroke", (d) => d.type === "cluster" ? "none" : theme.nodes.stroke).attr("stroke-width", (d) => d.type === "cluster" ? 0 : theme.nodes.strokeWidth).attr("fill-opacity", (d) => {
-      if (d.type === "cluster") return 0.3;
+    }).attr("stroke", theme.nodes.stroke).attr("stroke-width", theme.nodes.strokeWidth).attr("fill-opacity", (d) => {
       if (d.isInternal) return 0.8;
       return 1;
     }).on("click", function(event, d) {
       event.stopPropagation();
-      if (d.type === "cluster") {
-        onNodeSelect({
-          ...d,
-          displayInfo: {
-            type: "cluster",
-            nodeCount: d.clusteredNodes.length,
-            nodes: d.clusteredNodes
-          }
-        });
-      } else if (!d.isInternal) {
-        onNodeSelect(d);
-      }
       if (!d.isInternal) {
+        onNodeSelect(d);
         zoomToNode(d);
       }
     }).on("mouseover", function(event, d) {
       const nodeData = d;
       let tooltipContent = "";
-      if (nodeData.type === "cluster") {
-        const clusterInfo = nodeData.clusteredNodes.map((node2) => `<div style="margin: 2px 0; font-size: 11px;">${node2.name} (${node2.type})</div>`).join("");
-        tooltipContent = `
-            <div style="font-weight: bold; color: #666666; margin-bottom: 8px;">\u{1F517} Cluster: ${nodeData.clusteredNodes.length} nodes</div>
-            <div style="margin-bottom: 4px;"><strong>Clustered nodes:</strong></div>
-            ${clusterInfo}
-            <div style="margin-top: 8px; font-size: 10px; color: ${theme.colors.lightGray};">
-              These nodes have identical input/output connections
-            </div>
-          `;
-      } else if (nodeData.isInternal) {
+      if (nodeData.isInternal) {
         tooltipContent = `
             <div style="font-weight: bold; color: ${nodeData.type === "recipe" ? theme.nodes.recipe.fill : theme.nodes.material.fill}; margin-bottom: 8px;">
               ${nodeData.type === "recipe" ? "\u{1F4CB}" : "\u{1F4E6}"} ${nodeData.name}
@@ -61595,26 +61652,33 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         });
         return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
       });
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData2) => {
+        const isConnected = data.links.some((linkData) => {
+          if (linkData.type === "invisible") return false;
+          const sourceId = getSourceId(linkData);
+          const targetId = getTargetId(linkData);
+          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
+        });
+        return isConnected ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+      });
     }).on("mouseout", function(_event, _d) {
       tooltip.style("visibility", "hidden");
       link3.attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("stroke-width", theme.links.width.normal);
       node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
       node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", theme.nodes.cluster.opacity);
     });
+    clusterNodeGroup.selectAll("g").append("text").text((d) => d.name).attr("font-size", "12px").attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", 65).attr("fill", "#333333").attr("font-weight", "bold").style("pointer-events", "none");
     node.append("text").text((d) => {
-      if (d.type === "cluster") return d.name;
       if (d.isInternal) return d.name;
       return d.name;
     }).attr("font-size", (d) => {
-      if (d.type === "cluster") return "12px";
       if (d.isInternal) return "8px";
       return d.type === "recipe" ? theme.text.size.recipe : theme.text.size.material;
     }).attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", (d) => {
-      if (d.type === "cluster") return 65;
       if (d.isInternal) return 3;
       return d.type === "recipe" ? 18 : 15;
-    }).attr("fill", (d) => d.type === "cluster" ? "#333333" : theme.text.fill).attr("font-weight", (d) => {
-      if (d.type === "cluster") return "bold";
+    }).attr("fill", theme.text.fill).attr("font-weight", (d) => {
       if (d.isInternal) return "normal";
       return d.type === "recipe" ? "bold" : "normal";
     }).style("pointer-events", "none");
@@ -61657,6 +61721,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         if (distance === 0) return d.target.y;
         return d.target.y - dy / distance * targetRadius;
       });
+      clusterNodeGroup.selectAll("g").attr("transform", (d) => `translate(${d.x},${d.y})`);
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
     function dragstarted(event, d) {
@@ -61734,7 +61799,107 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
     }, displayName);
   };
   let content;
-  if (node.type === "recipe") {
+  if (node.displayInfo && node.displayInfo.type === "cluster") {
+    const clusteredNodes = node.displayInfo.nodes;
+    content = /* @__PURE__ */ import_npm_react2.default.createElement("div", null, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-title"
+    }, "\u{1F517} Cluster: ", node.displayInfo.nodeCount, " nodes"), /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-description"
+    }, "These nodes have identical input/output connections and have been grouped together."), /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-section"
+    }, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-section-title"
+    }, "Nodes in this cluster:"), clusteredNodes.map((clusterNode, index3) => /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      key: index3,
+      className: "cluster-node-item"
+    }, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-node-header",
+      onClick: () => onNodeLinkClick(clusterNode.id),
+      style: {
+        cursor: "pointer"
+      }
+    }, /* @__PURE__ */ import_npm_react2.default.createElement("span", {
+      className: "cluster-node-type"
+    }, clusterNode.type === "recipe" ? "\u{1F4CB}" : "\u{1F4E6}"), /* @__PURE__ */ import_npm_react2.default.createElement("span", {
+      className: "cluster-node-name node-link"
+    }, clusterNode.name)), clusterNode.type === "recipe" ? /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-recipe-full-details"
+    }, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-recipe-meta"
+    }, /* @__PURE__ */ import_npm_react2.default.createElement("div", null, /* @__PURE__ */ import_npm_react2.default.createElement("strong", null, "Building:"), " ", clusterNode.building), /* @__PURE__ */ import_npm_react2.default.createElement("div", null, /* @__PURE__ */ import_npm_react2.default.createElement("strong", null, "Time:"), " ", clusterNode.time, "s")), (() => {
+      const recipeInputs = data.links.filter((link3) => {
+        const targetId = getTargetId(link3);
+        return targetId === node.id && link3.type === "input";
+      }).map((link3) => {
+        const sourceId = getSourceId(link3);
+        return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+          key: sourceId,
+          className: "recipe-item"
+        }, renderNodeLink(sourceId), " ", /* @__PURE__ */ import_npm_react2.default.createElement("span", {
+          className: "recipe-qty"
+        }, "(", link3.qty, ")"));
+      });
+      return recipeInputs.length > 0 ? /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "cluster-recipe-section"
+      }, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "recipe-section-title inputs"
+      }, "Inputs:"), recipeInputs) : null;
+    })(), (() => {
+      const recipeOutputs = data.links.filter((link3) => {
+        const sourceId = getSourceId(link3);
+        return sourceId === node.id && link3.type === "output";
+      }).map((link3) => {
+        const targetId = getTargetId(link3);
+        return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+          key: targetId,
+          className: "recipe-item"
+        }, renderNodeLink(targetId), " ", /* @__PURE__ */ import_npm_react2.default.createElement("span", {
+          className: "recipe-qty"
+        }, "(", link3.qty, ")"));
+      });
+      return recipeOutputs.length > 0 ? /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "cluster-recipe-section"
+      }, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "recipe-section-title outputs"
+      }, "Outputs:"), recipeOutputs) : null;
+    })()) : /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+      className: "cluster-material-full-details"
+    }, (() => {
+      const usedInRecipes = data.links.filter((link3) => {
+        const sourceId = getSourceId(link3);
+        return sourceId === node.id && link3.type === "input";
+      }).map((link3) => {
+        const targetId = getTargetId(link3);
+        return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+          key: targetId,
+          className: "recipe-item"
+        }, renderNodeLink(targetId, true));
+      });
+      const producedByRecipes = data.links.filter((link3) => {
+        const targetId = getTargetId(link3);
+        return targetId === node.id && link3.type === "output";
+      }).map((link3) => {
+        const sourceId = getSourceId(link3);
+        return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+          key: sourceId,
+          className: "recipe-item"
+        }, renderNodeLink(sourceId, true));
+      });
+      return /* @__PURE__ */ import_npm_react2.default.createElement(import_npm_react2.default.Fragment, null, usedInRecipes.length > 0 ? /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "cluster-material-section"
+      }, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "recipe-section-title inputs"
+      }, "Used in recipes:"), usedInRecipes) : /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "material-empty"
+      }, "Not used in any recipes"), producedByRecipes.length > 0 ? /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "cluster-material-section"
+      }, /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "recipe-section-title outputs"
+      }, "Produced by recipes:"), producedByRecipes) : /* @__PURE__ */ import_npm_react2.default.createElement("div", {
+        className: "material-empty"
+      }, "Not produced by any recipes"));
+    })())))));
+  } else if (node.type === "recipe") {
     const inputs = data.links.filter((link3) => {
       const targetId = getTargetId(link3);
       return targetId === node.id && link3.type === "input";
@@ -61862,7 +62027,18 @@ function App() {
   const handleNodeLinkClick = (nodeName) => {
     const node = data?.nodes.find((n) => n.id === nodeName || n.name === nodeName);
     if (node) {
-      setSelectedNode(node);
+      if (node.type === "cluster") {
+        setSelectedNode({
+          ...node,
+          displayInfo: {
+            type: "cluster",
+            nodeCount: node.clusteredNodes.length,
+            nodes: node.clusteredNodes
+          }
+        });
+      } else {
+        setSelectedNode(node);
+      }
     }
   };
   (0, import_npm_react4.useEffect)(() => {

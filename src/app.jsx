@@ -26,7 +26,19 @@ function App() {
       n.id === nodeName || n.name === nodeName
     );
     if (node) {
-      setSelectedNode(node);
+      // If it's a cluster node, set up the proper display info
+      if (node.type === "cluster") {
+        setSelectedNode({
+          ...node,
+          displayInfo: {
+            type: "cluster",
+            nodeCount: node.clusteredNodes.length,
+            nodes: node.clusteredNodes,
+          },
+        });
+      } else {
+        setSelectedNode(node);
+      }
     }
   };
 
