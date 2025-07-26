@@ -87,7 +87,7 @@ function App() {
 
       <Legend selectedNode={selectedNode} />
 
-      <div className="stats-overlay">
+      <div className="overlay stats-overlay">
         Nodes: {data?.nodes.length} | Links: {data?.links.length}
       </div>
 

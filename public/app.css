@@ -16,8 +16,8 @@
   --color-lighter-border: #e0e0e0;
   --color-background: #efefef;
   --color-card-background: #f8f9fa;
-  --color-overlay-background: rgba(255, 255, 255, 0.95);
-  --color-tooltip-background: rgba(0, 0, 0, 0.9);
+  --color-overlay-background: rgba(255, 255, 255, 0.35);
+  --color-tooltip-background: rgba(0, 0, 0, 0.35);
   --color-tooltip-text: #fff;
   --color-shadow: rgba(0, 0, 0, 0.1);
   --color-shadow-medium: rgba(0, 0, 0, 0.15);
@@ -27,6 +27,7 @@
   --opacity-faded: 0.2;
   --node-material-fill: var(--color-primary);
   --node-recipe-fill: var(--color-secondary);
+  --node-cluster-fill: var(--color-medium-dark);
   --node-material-radius: 8;
   --node-recipe-radius: 12;
   --node-stroke: var(--color-light);
@@ -52,7 +53,40 @@
   --border-radius-sm: 6px;
   --panel-padding: var(--spacing-xl);
   --overlay-background: var(--color-overlay-background);
-  --overlay-shadow: 0 2px 8px var(--color-shadow-medium);
+  --overlay-shadow: 0 2px 16px var(--color-shadow-medium);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #8b5cf6;
+    --color-secondary: #f97316;
+    --color-success: #10b981;
+    --color-danger: #ef4444;
+    --color-dark: #f3f4f6;
+    --color-medium-dark: #e5e7eb;
+    --color-light: #111827;
+    --color-gray: #9ca3af;
+    --color-medium-gray: #6b7280;
+    --color-light-gray: #4b5563;
+    --color-gold: #fbbf24;
+    --color-border: #374151;
+    --color-light-border: #4b5563;
+    --color-lighter-border: #6b7280;
+    --color-background: #0f172a;
+    --color-card-background: #1e293b;
+    --color-overlay-background: rgba(17, 24, 39, 0.55);
+    --color-tooltip-background: rgba(31, 41, 55, 0.55);
+    --color-tooltip-text: #f9fafb;
+    --color-shadow: rgba(0, 0, 0, 0.4);
+    --color-shadow-medium: rgba(0, 0, 0, 0.5);
+    --color-shadow-strong: rgba(0, 0, 0, 0.7);
+    --node-material-fill: var(--color-primary);
+    --node-recipe-fill: var(--color-secondary);
+    --node-cluster-fill: var(--color-card-background);
+    --node-stroke: var(--color-light);
+    --link-input-color: var(--color-primary);
+    --link-output-color: var(--color-secondary);
+    --text-fill: var(--color-dark);
+  }
 }
 html,
 body {
@@ -86,6 +120,14 @@ body {
   width: 100%;
   height: 100%;
 }
+.overlay {
+  background-color: var(--overlay-background);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--overlay-shadow);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+}
 .title-overlay {
   position: absolute;
   top: var(--spacing-xl);
@@ -102,16 +144,15 @@ body {
 .title-overlay h3 {
   margin: 0;
   margin-top: -1rem;
+  text-shadow:
+    0 0 2rem var(--overlay-shadow),
+    0 0 1rem var(--overlay-shadow),
+    0 0 8px var(--overlay-shadow);
 }
 .legend-overlay {
   position: absolute;
   top: var(--spacing-xl);
   right: var(--spacing-xl);
-  background-color: var(--overlay-background);
-  padding: var(--spacing-lg);
-  border-radius: var(--border-radius);
-  box-shadow: var(--overlay-shadow);
-  z-index: 100;
   transition: right 0.3s ease;
 }
 .legend-overlay.with-panel {
@@ -138,13 +179,6 @@ body {
   position: absolute;
   bottom: var(--spacing-xl);
   left: var(--spacing-xl);
-  background-color: var(--overlay-background);
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-radius: var(--border-radius);
-  box-shadow: var(--overlay-shadow);
-  font-size: 14px;
-  color: var(--color-gray);
-  z-index: 100;
 }
 .detail-panel {
   position: fixed;

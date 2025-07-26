@@ -3,7 +3,7 @@ import { theme } from "../theme.js";
 
 export function Legend({ selectedNode }) {
   return (
-    <div className={`legend-overlay ${selectedNode ? "with-panel" : ""}`}>
+    <div className={`overlay legend-overlay ${selectedNode ? "with-panel" : ""}`}>
       <div className="legend-title">
         Legend:
       </div>

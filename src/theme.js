@@ -5,11 +5,19 @@ export const theme = {
     success: "var(--color-success)",
     danger: "var(--color-danger)",
     dark: "var(--color-dark)",
+    mediumDark: "var(--color-medium-dark)",
     light: "var(--color-light)",
     gray: "var(--color-gray)",
+    mediumGray: "var(--color-medium-gray)",
     lightGray: "var(--color-light-gray)",
     gold: "var(--color-gold)",
     border: "var(--color-border)",
+    lightBorder: "var(--color-light-border)",
+    lighterBorder: "var(--color-lighter-border)",
+    background: "var(--color-background)",
+    cardBackground: "var(--color-card-background)",
+    overlayBackground: "var(--color-overlay-background)",
+    text: "var(--color-dark)",
     tooltip: {
       background: "var(--color-tooltip-background)",
       text: "var(--color-tooltip-text)",
@@ -32,7 +40,7 @@ export const theme = {
       radius: 12,
     },
     cluster: {
-      fill: "#ddd",
+      fill: "var(--node-cluster-fill)",
       radius: 50,
       opacity: 1.0,
     },
@@ -50,7 +58,7 @@ export const theme = {
     },
   },
   text: {
-    family: "Arial, sans-serif",
+    family: "Inter, Arial, sans-serif",
     fill: "var(--text-fill)",
     size: {
       recipe: "12px",

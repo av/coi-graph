@@ -61091,11 +61091,19 @@ var theme = {
     success: "var(--color-success)",
     danger: "var(--color-danger)",
     dark: "var(--color-dark)",
+    mediumDark: "var(--color-medium-dark)",
     light: "var(--color-light)",
     gray: "var(--color-gray)",
+    mediumGray: "var(--color-medium-gray)",
     lightGray: "var(--color-light-gray)",
     gold: "var(--color-gold)",
     border: "var(--color-border)",
+    lightBorder: "var(--color-light-border)",
+    lighterBorder: "var(--color-lighter-border)",
+    background: "var(--color-background)",
+    cardBackground: "var(--color-card-background)",
+    overlayBackground: "var(--color-overlay-background)",
+    text: "var(--color-dark)",
     tooltip: {
       background: "var(--color-tooltip-background)",
       text: "var(--color-tooltip-text)"
@@ -61118,7 +61126,7 @@ var theme = {
       radius: 12
     },
     cluster: {
-      fill: "#ddd",
+      fill: "var(--node-cluster-fill)",
       radius: 50,
       opacity: 1
     },
@@ -61136,7 +61144,7 @@ var theme = {
     }
   },
   text: {
-    family: "Arial, sans-serif",
+    family: "Inter, Arial, sans-serif",
     fill: "var(--text-fill)",
     size: {
       recipe: "12px",
@@ -61511,7 +61519,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       const y4 = -nodeData.y * scale2 + height / 2;
       svg2.transition().duration(750).call(zoom.transform, identity5.translate(x4, y4).scale(scale2));
     };
-    const tooltip = select_default2("body").append("div").attr("class", "tooltip").style("position", "absolute").style("visibility", "hidden").style("background", theme.colors.tooltip.background).style("color", theme.colors.tooltip.text).style("padding", "12px").style("border-radius", "6px").style("font-size", "12px").style("font-family", theme.text.family).style("max-width", "300px").style("box-shadow", "0 4px 8px rgba(0, 0, 0, 0.3)").style("z-index", "1000").style("pointer-events", "none");
+    const tooltip = select_default2("body").append("div").attr("class", "tooltip overlay").style("position", "absolute").style("visibility", "hidden").style("background", theme.colors.tooltip.background).style("color", theme.colors.tooltip.text).style("padding", "12px").style("border-radius", "6px").style("font-size", "12px").style("font-family", theme.text.family).style("max-width", "300px").style("box-shadow", "0 4px 8px rgba(0, 0, 0, 0.3)").style("z-index", "1000").style("pointer-events", "none");
     const defs = svg2.append("defs");
     defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
@@ -61605,7 +61613,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       const nodeData = d;
       const clusterInfo = nodeData.clusteredNodes.map((node2) => `<div style="margin: 2px 0; font-size: 11px;">${node2.name} (${node2.type})</div>`).join("");
       const tooltipContent = `
-          <div style="font-weight: bold; color: #666666; margin-bottom: 8px;">\u{1F517} Cluster: ${nodeData.clusteredNodes.length} nodes</div>
+          <div style="font-weight: bold; color: ${theme.colors.mediumGray}; margin-bottom: 8px;">\u{1F517} Cluster: ${nodeData.clusteredNodes.length} nodes</div>
           <div style="margin-bottom: 4px;"><strong>Clustered nodes:</strong></div>
           ${clusterInfo}
           <div style="margin-top: 8px; font-size: 10px; color: ${theme.colors.lightGray};">
@@ -61619,7 +61627,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       const selectedNodeId = selectedNode?.id;
       link3.attr("stroke-opacity", (linkData) => getLinkOpacity(linkData, hoveredNodeId, selectedNodeId)).attr("stroke-width", (linkData) => getLinkWidth(linkData, hoveredNodeId, selectedNodeId));
       node.select("circle").attr("opacity", (nodeData2) => getNodeOpacity(nodeData2, hoveredNodeId, selectedNodeId));
-      node.select("text").attr("y", 12).attr("opacity", (nodeData2) => getNodeOpacity(nodeData2, hoveredNodeId, selectedNodeId));
+      node.select("text").attr("opacity", (nodeData2) => getNodeOpacity(nodeData2, hoveredNodeId, selectedNodeId));
       clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData2) => getClusterOpacity(nodeData2, hoveredNodeId, selectedNodeId));
     }).on("mouseout", function(_event, _d) {
       tooltip.style("visibility", "hidden");
@@ -61718,17 +61726,14 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       node.select("text").attr("opacity", (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId));
       clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData) => getClusterOpacity(nodeData, null, selectedNodeId));
     });
-    clusterNodeGroup.selectAll("g").append("text").text((d) => d.name).attr("font-size", "12px").attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", 65).attr("fill", "#333333").attr("font-weight", "bold").style("pointer-events", "none");
+    clusterNodeGroup.selectAll("g").append("text").text((d) => d.name).attr("font-size", "12px").attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", 65).attr("fill", theme.text.fill).attr("font-weight", "bold").style("pointer-events", "none");
     node.append("text").text((d) => {
       if (d.isInternal) return d.name;
       return d.name;
     }).attr("font-size", (d) => {
       if (d.isInternal) return "8px";
       return d.type === "recipe" ? theme.text.size.recipe : theme.text.size.material;
-    }).attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", (d) => {
-      if (d.isInternal) return 3;
-      return d.type === "recipe" ? 18 : 15;
-    }).attr("fill", theme.text.fill).attr("font-weight", (d) => {
+    }).attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", "14").attr("fill", theme.text.fill).attr("font-weight", (d) => {
       if (d.isInternal) return "normal";
       return d.type === "recipe" ? "bold" : "normal";
     }).style("pointer-events", "none");
@@ -62045,7 +62050,7 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
 var import_npm_react3 = __toESM(require__());
 function Legend({ selectedNode }) {
   return /* @__PURE__ */ import_npm_react3.default.createElement("div", {
-    className: `legend-overlay ${selectedNode ? "with-panel" : ""}`
+    className: `overlay legend-overlay ${selectedNode ? "with-panel" : ""}`
   }, /* @__PURE__ */ import_npm_react3.default.createElement("div", {
     className: "legend-title"
   }, "Legend:"), /* @__PURE__ */ import_npm_react3.default.createElement("div", {
@@ -62136,7 +62141,7 @@ function App() {
   }), /* @__PURE__ */ import_npm_react4.default.createElement("h3", null, "Recipe Graph")), /* @__PURE__ */ import_npm_react4.default.createElement(Legend, {
     selectedNode
   }), /* @__PURE__ */ import_npm_react4.default.createElement("div", {
-    className: "stats-overlay"
+    className: "overlay stats-overlay"
   }, "Nodes: ", data?.nodes.length, " | Links: ", data?.links.length), /* @__PURE__ */ import_npm_react4.default.createElement(DetailPanel, {
     node: selectedNode,
     data,

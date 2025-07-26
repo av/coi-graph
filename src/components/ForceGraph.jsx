@@ -196,7 +196,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     };
 
     const tooltip = d3.select("body").append("div")
-      .attr("class", "tooltip")
+      .attr("class", "tooltip overlay")
       .style("position", "absolute")
       .style("visibility", "hidden")
       .style("background", theme.colors.tooltip.background)
@@ -438,7 +438,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         ).join("");
 
         const tooltipContent = `
-          <div style="font-weight: bold; color: #666666; margin-bottom: 8px;">🔗 Cluster: ${nodeData.clusteredNodes.length} nodes</div>
+          <div style="font-weight: bold; color: ${theme.colors.mediumGray}; margin-bottom: 8px;">🔗 Cluster: ${nodeData.clusteredNodes.length} nodes</div>
           <div style="margin-bottom: 4px;"><strong>Clustered nodes:</strong></div>
           ${clusterInfo}
           <div style="margin-top: 8px; font-size: 10px; color: ${theme.colors.lightGray};">
@@ -481,7 +481,6 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           );
 
         node.select("text")
-          .attr("y", 12)
           .attr(
             "opacity",
             (nodeData) =>
@@ -760,7 +759,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .attr("font-family", theme.text.family)
       .attr("text-anchor", "middle")
       .attr("dy", 65)
-      .attr("fill", "#333333")
+      .attr("fill", theme.text.fill)
       .attr("font-weight", "bold")
       .style("pointer-events", "none");
 
@@ -781,10 +780,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       )
       .attr("font-family", theme.text.family)
       .attr("text-anchor", "middle")
-      .attr("dy", (d) => {
-        if (d.isInternal) return 3;
-        return d.type === "recipe" ? 18 : 15;
-      })
+      .attr("dy", "14")
       .attr("fill", theme.text.fill)
       .attr("font-weight", (d) => {
         if (d.isInternal) return "normal";
