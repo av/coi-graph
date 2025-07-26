@@ -6,7 +6,8 @@ import recipesData from "../data/recipes.json" with { type: "json" };
 import { ForceGraph } from "./components/ForceGraph.jsx";
 import { DetailPanel } from "./components/DetailPanel.jsx";
 import { Legend } from "./components/Legend.jsx";
-import { processRecipesData, processRecipesDataWithClustering } from "./utils/dataProcessor.js";
+import { processRecipesData } from "./utils/dataProcessor.js";
+import { theme } from "./theme.js";
 
 function App() {
   const [data, setData] = useState(null);
@@ -44,7 +45,7 @@ function App() {
 
   useEffect(() => {
     try {
-      const processedData = processRecipesDataWithClustering(recipesData);
+      const processedData = processRecipesData(recipesData, theme);
       setData(processedData);
       setLoading(false);
     } catch (err) {

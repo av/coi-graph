@@ -1,4 +1,4 @@
-export function processRecipesData(recipes) {
+export function processRecipesData(recipes, theme) {
   const nodes = new Map();
   const links = [];
 
@@ -113,7 +113,7 @@ export function processRecipesData(recipes) {
 
       const sharedItems = [...recipe1Items].filter(item => recipe2Items.has(item));
 
-      if (sharedItems.length >= 2) {
+      if (sharedItems.length >= 3) {
         links.push({
           source: recipeIds[i],
           target: recipeIds[j],
@@ -123,10 +123,13 @@ export function processRecipesData(recipes) {
     }
   }
 
-  const result = {
+  let result = {
     nodes: Array.from(nodes.values()),
     links: links,
   };
+
+  result = clusterNodes(result);
+  result = preComputeLinkOpacities(result, theme);
 
   return result;
 }
@@ -300,7 +303,22 @@ export function clusterNodes(data) {
   };
 }
 
-export function processRecipesDataWithClustering(recipes) {
-  const data = processRecipesData(recipes);
-  return clusterNodes(data);
+export function preComputeLinkOpacities(data, theme) {
+  const { connectionsMap } = calculateConnections(data);
+
+  const getSourceId = (link) =>
+    typeof link.source === "object" ? link.source.id : link.source;
+  const getTargetId = (link) =>
+    typeof link.target === "object" ? link.target.id : link.target;
+
+  data.links.forEach(link => {
+    if (link.type === "invisible") {
+      link.computedOpacity = 0;
+    } else {
+      const connections = (connectionsMap.get(getSourceId(link)) || 0) + (connectionsMap.get(getTargetId(link)) || 0);
+      link.computedOpacity = Math.max(theme.links.opacity - (connections * 0.01), 0.1);
+    }
+  });
+
+  return data;
 }

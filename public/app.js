@@ -56903,6 +56903,37 @@ function manyBody_default() {
   return force;
 }
 
+// ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/x.js
+function x_default2(x4) {
+  var strength = constant_default7(0.1), nodes, strengths, xz;
+  if (typeof x4 !== "function") x4 = constant_default7(x4 == null ? 0 : +x4);
+  function force(alpha) {
+    for (var i = 0, n = nodes.length, node; i < n; ++i) {
+      node = nodes[i], node.vx += (xz[i] - node.x) * strengths[i] * alpha;
+    }
+  }
+  function initialize() {
+    if (!nodes) return;
+    var i, n = nodes.length;
+    strengths = new Array(n);
+    xz = new Array(n);
+    for (i = 0; i < n; ++i) {
+      strengths[i] = isNaN(xz[i] = +x4(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
+    }
+  }
+  force.initialize = function(_) {
+    nodes = _;
+    initialize();
+  };
+  force.strength = function(_) {
+    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : strength;
+  };
+  force.x = function(_) {
+    return arguments.length ? (x4 = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : x4;
+  };
+  return force;
+}
+
 // ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/y.js
 function y_default2(y4) {
   var strength = constant_default7(0.1), nodes, strengths, yz;
@@ -61087,9 +61118,9 @@ var theme = {
       radius: 12
     },
     cluster: {
-      fill: "#666666",
+      fill: "rgba(0, 0, 0, 1.0)",
       radius: 50,
-      opacity: 0.2
+      opacity: 0.1
     },
     stroke: "var(--node-stroke)",
     strokeWidth: 2
@@ -61119,7 +61150,7 @@ var theme = {
 };
 
 // src/utils/dataProcessor.js
-function processRecipesData(recipes) {
+function processRecipesData(recipes, theme2) {
   const nodes = /* @__PURE__ */ new Map();
   const links = [];
   recipes.forEach((recipe) => {
@@ -61217,7 +61248,7 @@ function processRecipesData(recipes) {
       const sharedItems = [
         ...recipe1Items
       ].filter((item) => recipe2Items.has(item));
-      if (sharedItems.length >= 2) {
+      if (sharedItems.length >= 3) {
         links.push({
           source: recipeIds[i],
           target: recipeIds[j],
@@ -61226,10 +61257,12 @@ function processRecipesData(recipes) {
       }
     }
   }
-  const result = {
+  let result = {
     nodes: Array.from(nodes.values()),
     links
   };
+  result = clusterNodes(result);
+  result = preComputeLinkOpacities(result, theme2);
   return result;
 }
 function calculateConnections(data) {
@@ -61351,9 +61384,19 @@ function clusterNodes(data) {
     links: clusteredLinks
   };
 }
-function processRecipesDataWithClustering(recipes) {
-  const data = processRecipesData(recipes);
-  return clusterNodes(data);
+function preComputeLinkOpacities(data, theme2) {
+  const { connectionsMap } = calculateConnections(data);
+  const getSourceId = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
+  const getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
+  data.links.forEach((link3) => {
+    if (link3.type === "invisible") {
+      link3.computedOpacity = 0;
+    } else {
+      const connections = (connectionsMap.get(getSourceId(link3)) || 0) + (connectionsMap.get(getTargetId(link3)) || 0);
+      link3.computedOpacity = Math.max(theme2.links.opacity - connections * 0.01, 0.1);
+    }
+  });
+  return data;
 }
 
 // src/components/ForceGraph.jsx
@@ -61375,7 +61418,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     });
     svg2.call(zoom);
     const zoomToNode = (nodeData) => {
-      const scale2 = 2;
+      const scale2 = 1;
       const effectiveWidth = selectedNode ? width - 350 : width;
       const x4 = -nodeData.x * scale2 + effectiveWidth / 2;
       const y4 = -nodeData.y * scale2 + height / 2;
@@ -61405,7 +61448,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       allNodesWithPositions.push(clusterNode);
       if (clusterNode.clusteredNodes) {
         clusterNode.clusteredNodes.forEach((internalNode, index3) => {
-          const angle = index3 / clusterNode.clusteredNodes.length * 2 * Math.PI;
+          const angle = Math.PI / 3 + index3 / clusterNode.clusteredNodes.length * 2 * Math.PI;
           const radius = 30;
           const internalNodeCopy = {
             ...internalNode,
@@ -61420,10 +61463,9 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       }
     });
     const simulation = simulation_default(allNodesWithPositions).force("link", link_default(data.links).id((d) => d.id).distance((d) => {
-      if (d.type === "invisible") return 10;
-      return 100;
+      if (d.type === "invisible") return 0;
+      return 50;
     })).force("charge", manyBody_default().strength((d) => {
-      if (d.isInternal) return -10;
       const parentsConnections = data.links.flatMap((link4) => {
         const sourceId = getSourceId(link4);
         const targetId = getTargetId(link4);
@@ -61440,7 +61482,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       }).reduce((acc, id2) => {
         return acc + connectionsMap.get(id2) || 0;
       }, 0);
-      return parentsConnections * (d.type === "cluster" ? -10 : -1);
+      return parentsConnections * (d.type === "cluster" ? -20 : -4);
     })).force("collision", collide_default().radius((d) => {
       if (d.type === "cluster") return 60;
       if (d.isInternal) return 8;
@@ -61449,8 +61491,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       if (d.isInternal) return 0;
       const depth = depthMap.get(d.id) || 0;
       return depth * 20;
-    }).strength((d) => d.isInternal ? 0 : 0.1)).alphaDecay(0.01);
-    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("stroke-width", theme.links.width.default).attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("marker-end", (d) => {
+    }).strength((d) => d.isInternal ? 0 : 0.1)).force("x", x_default2().x(width / 2).strength(0.01)).force("y", y_default2().y(height / 2).strength(0.01)).alphaDecay(0.01);
+    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("stroke-width", theme.links.width.default).attr("stroke-opacity", (d) => d.computedOpacity).attr("marker-end", (d) => {
       if (d.type === "invisible") return "none";
       const targetId = getTargetId(d);
       const targetNode = allNodesWithPositions.find((node2) => node2.id === targetId);
@@ -61508,7 +61550,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         });
         return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
       });
-      node.select("text").attr("opacity", (nodeData2) => {
+      node.select("text").attr("y", 12).attr("opacity", (nodeData2) => {
         const isConnected = data.links.some((linkData) => {
           if (linkData.type === "invisible") return false;
           const sourceId = getSourceId(linkData);
@@ -61531,7 +61573,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
     }).on("mouseout", function(_event, _d) {
       tooltip.style("visibility", "hidden");
-      link3.attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("stroke-width", theme.links.width.normal);
+      link3.attr("stroke-opacity", (d) => d.computedOpacity).attr("stroke-width", theme.links.width.normal);
       node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
       node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
       clusterNodeGroup.selectAll("g").select("circle").attr("opacity", theme.nodes.cluster.opacity);
@@ -61663,7 +61705,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
     }).on("mouseout", function(_event, _d) {
       tooltip.style("visibility", "hidden");
-      link3.attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("stroke-width", theme.links.width.normal);
+      link3.attr("stroke-opacity", (d) => d.computedOpacity).attr("stroke-width", theme.links.width.normal);
       node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
       node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
       clusterNodeGroup.selectAll("g").select("circle").attr("opacity", theme.nodes.cluster.opacity);
@@ -61763,7 +61805,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         const svg2 = select_default2(svgRef.current);
         const width = globalThis.innerWidth;
         const height = globalThis.innerHeight;
-        const scale2 = 2;
+        const scale2 = 1;
         const effectiveWidth = width - 350;
         const x4 = -nodeData.x * scale2 + effectiveWidth / 2;
         const y4 = -nodeData.y * scale2 + height / 2;
@@ -62043,7 +62085,7 @@ function App() {
   };
   (0, import_npm_react4.useEffect)(() => {
     try {
-      const processedData = processRecipesDataWithClustering(recipes_default);
+      const processedData = processRecipesData(recipes_default, theme);
       setData(processedData);
       setLoading(false);
     } catch (err) {

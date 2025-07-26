@@ -31,7 +31,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     svg.call(zoom);
 
     const zoomToNode = (nodeData) => {
-      const scale = 2;
+      const scale = 1;
       const effectiveWidth = selectedNode ? width - 350 : width;
       const x = -nodeData.x * scale + effectiveWidth / 2;
       const y = -nodeData.y * scale + height / 2;
@@ -132,7 +132,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
       if (clusterNode.clusteredNodes) {
         clusterNode.clusteredNodes.forEach((internalNode, index) => {
-          const angle = (index / clusterNode.clusteredNodes.length) * 2 *
+          const angle = (Math.PI / 3) + (index / clusterNode.clusteredNodes.length) * 2 *
             Math.PI;
           const radius = 30;
           const internalNodeCopy = {
@@ -152,15 +152,13 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .force(
         "link",
         d3.forceLink(data.links).id((d) => d.id).distance((d) => {
-          if (d.type === "invisible") return 10;
-          return 100;
+          if (d.type === "invisible") return 0;
+          return 50;
         }),
       )
       .force(
         "charge",
         d3.forceManyBody().strength((d) => {
-          if (d.isInternal) return -10;
-
           const parentsConnections = data.links.flatMap(
             (link) => {
               const sourceId = getSourceId(link);
@@ -176,7 +174,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
             return acc + connectionsMap.get(id) || 0;
           }, 0);
 
-          return parentsConnections * (d.type === "cluster" ? -10 : -1);
+          return parentsConnections * (d.type === "cluster" ? -20 : -4);
         }),
       )
       .force(
@@ -197,6 +195,14 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           return depth * 20;
         }).strength((d) => d.isInternal ? 0 : 0.1),
       )
+      .force(
+        'x',
+        d3.forceX().x(width / 2).strength(0.01),
+      )
+      .force(
+        'y',
+        d3.forceY().y(height / 2).strength(0.01),
+      )
       .alphaDecay(0.01);
 
     const link = g.append("g")
@@ -212,10 +218,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         (d) => d.type === "input" ? theme.links.input : theme.links.output,
       )
       .attr("stroke-width", theme.links.width.default)
-      .attr(
-        "stroke-opacity",
-        (d) => d.type === "invisible" ? 0 : theme.links.opacity,
-      )
+      .attr("stroke-opacity", (d) => d.computedOpacity)
       .attr("marker-end", (d) => {
         if (d.type === "invisible") return "none";
         const targetId = getTargetId(d);
@@ -336,6 +339,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           });
 
         node.select("text")
+          .attr('y', 12)
           .attr("opacity", (nodeData) => {
             const isConnected = data.links.some((linkData) => {
               if (linkData.type === "invisible") return false;
@@ -372,10 +376,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
         // Reset all links
         link
-          .attr(
-            "stroke-opacity",
-            (d) => d.type === "invisible" ? 0 : theme.links.opacity,
-          )
+          .attr("stroke-opacity", (d) => d.computedOpacity)
           .attr("stroke-width", theme.links.width.normal);
 
         // Reset all regular and internal nodes
@@ -612,10 +613,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
         // Reset all links
         link
-          .attr(
-            "stroke-opacity",
-            (d) => d.type === "invisible" ? 0 : theme.links.opacity,
-          )
+          .attr("stroke-opacity", (d) => d.computedOpacity)
           .attr("stroke-width", theme.links.width.normal);
 
         // Reset all regular and internal nodes
@@ -771,7 +769,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         const svg = d3.select(svgRef.current);
         const width = globalThis.innerWidth;
         const height = globalThis.innerHeight;
-        const scale = 2;
+        const scale = 1;
         const effectiveWidth = width - 350;
         const x = -nodeData.x * scale + effectiveWidth / 2;
         const y = -nodeData.y * scale + height / 2;
