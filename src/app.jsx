@@ -1,69 +1,68 @@
 import React, { useEffect, useRef, useState } from "npm:react";
 import { createRoot } from "npm:react-dom/client";
 import * as d3 from "npm:d3";
-import recipesData from "../data/recipes.json" with { type: "json" };
 
-const inputColor = "indigo";
-const outputColor = "orange";
+import './styles.css';
+import recipesData from "../data/recipes.json" with { type: "json" };
 
 const theme = {
   colors: {
-    primary: inputColor,
-    secondary: outputColor,
-    success: "#2ecc71",
-    danger: "#e74c3c",
-    dark: "#333",
-    light: "#fff",
-    gray: "#666",
-    lightGray: "#888",
-    gold: "#ffd700",
-    border: "#ccc",
+    primary: 'var(--color-primary)',
+    secondary: 'var(--color-secondary)',
+    success: 'var(--color-success)',
+    danger: 'var(--color-danger)',
+    dark: 'var(--color-dark)',
+    light: 'var(--color-light)',
+    gray: 'var(--color-gray)',
+    lightGray: 'var(--color-light-gray)',
+    gold: 'var(--color-gold)',
+    border: 'var(--color-border)',
     tooltip: {
-      background: "rgba(0, 0, 0, 0.9)",
-      text: "#fff"
+      background: 'var(--color-tooltip-background)',
+      text: 'var(--color-tooltip-text)',
     },
     highlight: {
       opacity: {
-        full: 1.0,
+        full: 1,
         dimmed: 0.3,
-        faded: 0.2
-      }
-    }
+        faded: 0.1,
+      },
+    },
   },
   nodes: {
     material: {
-      fill: inputColor,
-      radius: 8
+      fill: 'var(--node-material-fill)',
+      radius: 8,
     },
     recipe: {
-      fill: outputColor,
-      radius: 12
+      fill: 'var(--node-recipe-fill)',
+      radius: 12,
     },
-    stroke: "#fff",
-    strokeWidth: 2
+    stroke: 'var(--node-stroke)',
+    strokeWidth: 2,
   },
   links: {
-    input: inputColor,
-    output: outputColor,
-    opacity: 0.7,
+    input: 'var(--link-input-color)',
+    output: 'var(--link-output-color)',
+    opacity: 0.6,
     width: {
       normal: 1,
       highlighted: 1,
-      default: 1
-    }
+      default: 1,
+    },
   },
   text: {
-    family: "Arial, sans-serif",
-    fill: "#333",
+    family: 'Arial, sans-serif',
+    fill: 'var(--text-fill)',
     size: {
-      recipe: 10,
-      material: 9
-    }
+      recipe: '12px',
+      material: '10px',
+    },
   },
   collision: {
-    recipe: 25,
-    material: 20
-  }
+    recipe: 18,
+    material: 12,
+  },
 };
 
 function processRecipesData(recipes) {
@@ -163,8 +162,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const width = 1400;
-    const height = 900;
+    const width = globalThis.innerWidth;
+    const height = globalThis.innerHeight;
 
     svg.attr("width", width).attr("height", height);
 
@@ -180,7 +179,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
     const zoomToNode = (nodeData) => {
       const scale = 2;
-      const x = -nodeData.x * scale + width / 2;
+      const effectiveWidth = selectedNode ? width - 350 : width;
+      const x = -nodeData.x * scale + effectiveWidth / 2;
       const y = -nodeData.y * scale + height / 2;
 
       svg.transition()
@@ -259,8 +259,10 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const _maxInputCount = Math.max(...inputCountMap.values());
     const _maxOutputCount = Math.max(...outputCountMap.values());
 
-    const getSourceId = (link) => typeof link.source === "object" ? link.source.id : link.source;
-    const getTargetId = (link) => typeof link.target === "object" ? link.target.id : link.target;
+    const getSourceId = (link) =>
+      typeof link.source === "object" ? link.source.id : link.source;
+    const getTargetId = (link) =>
+      typeof link.target === "object" ? link.target.id : link.target;
 
     const simulation = d3.forceSimulation(data.nodes)
       .force(
@@ -281,7 +283,9 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .force(
         "collision",
         d3.forceCollide().radius((d) => {
-          return d.type === "recipe" ? theme.collision.recipe : theme.collision.material;
+          return d.type === "recipe"
+            ? theme.collision.recipe
+            : theme.collision.material;
         }),
       )
       .alphaDecay(0.01);
@@ -290,8 +294,14 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .selectAll("line")
       .data(data.links)
       .join("line")
-      .attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output)
-      .attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output)
+      .attr(
+        "stroke",
+        (d) => d.type === "input" ? theme.links.input : theme.links.output,
+      )
+      .attr(
+        "fill",
+        (d) => d.type === "input" ? theme.links.input : theme.links.output,
+      )
       .attr("stroke-width", theme.links.width.default)
       .attr("stroke-opacity", theme.links.opacity)
       .attr("marker-end", (d) => {
@@ -315,8 +325,20 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       );
 
     node.append("circle")
-      .attr("r", (d) => d.type === "recipe" ? theme.nodes.recipe.radius : theme.nodes.material.radius)
-      .attr("fill", (d) => d.type === "recipe" ? theme.nodes.recipe.fill : theme.nodes.material.fill)
+      .attr(
+        "r",
+        (d) =>
+          d.type === "recipe"
+            ? theme.nodes.recipe.radius
+            : theme.nodes.material.radius,
+      )
+      .attr(
+        "fill",
+        (d) =>
+          d.type === "recipe"
+            ? theme.nodes.recipe.fill
+            : theme.nodes.material.fill,
+      )
       .attr("stroke", theme.nodes.stroke)
       .attr("stroke-width", theme.nodes.strokeWidth)
       .on("click", function (event, d) {
@@ -417,37 +439,49 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
           .attr("stroke-opacity", (linkData) => {
             const sourceId = getSourceId(linkData);
             const targetId = getTargetId(linkData);
-            return (sourceId === d.id || targetId === d.id) ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.faded;
+            return (sourceId === d.id || targetId === d.id)
+              ? theme.colors.highlight.opacity.full
+              : theme.colors.highlight.opacity.faded;
           })
           .attr("stroke-width", (linkData) => {
             const sourceId = getSourceId(linkData);
             const targetId = getTargetId(linkData);
-            return (sourceId === d.id || targetId === d.id) ? theme.links.width.highlighted : theme.links.width.normal;
+            return (sourceId === d.id || targetId === d.id)
+              ? theme.links.width.highlighted
+              : theme.links.width.normal;
           });
 
         // Highlight connected nodes
         node.select("circle")
           .attr("opacity", (nodeData) => {
-            if (nodeData.id === d.id) return theme.colors.highlight.opacity.full;
+            if (nodeData.id === d.id) {
+              return theme.colors.highlight.opacity.full;
+            }
             const isConnected = data.links.some((linkData) => {
               const sourceId = getSourceId(linkData);
               const targetId = getTargetId(linkData);
               return (sourceId === d.id && targetId === nodeData.id) ||
                 (targetId === d.id && sourceId === nodeData.id);
             });
-            return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+            return isConnected
+              ? theme.colors.highlight.opacity.full
+              : theme.colors.highlight.opacity.dimmed;
           });
 
         node.select("text")
           .attr("opacity", (nodeData) => {
-            if (nodeData.id === d.id) return theme.colors.highlight.opacity.full;
+            if (nodeData.id === d.id) {
+              return theme.colors.highlight.opacity.full;
+            }
             const isConnected = data.links.some((linkData) => {
               const sourceId = getSourceId(linkData);
               const targetId = getTargetId(linkData);
               return (sourceId === d.id && targetId === nodeData.id) ||
                 (targetId === d.id && sourceId === nodeData.id);
             });
-            return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+            return isConnected
+              ? theme.colors.highlight.opacity.full
+              : theme.colors.highlight.opacity.dimmed;
           });
       })
       .on("mouseout", function (_event, _d) {
@@ -468,7 +502,13 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
     node.append("text")
       .text((d) => d.name)
-      .attr("font-size", (d) => d.type === "recipe" ? theme.text.size.recipe : theme.text.size.material)
+      .attr(
+        "font-size",
+        (d) =>
+          d.type === "recipe"
+            ? theme.text.size.recipe
+            : theme.text.size.material,
+      )
       .attr("font-family", theme.text.family)
       .attr("text-anchor", "middle")
       .attr("dy", (d) => d.type === "recipe" ? 18 : 15)
@@ -512,13 +552,14 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
   useEffect(() => {
     if (selectedNode && data) {
-      const nodeData = data.nodes.find(n => n.id === selectedNode.id);
+      const nodeData = data.nodes.find((n) => n.id === selectedNode.id);
       if (nodeData && nodeData.x !== undefined && nodeData.y !== undefined) {
         const svg = d3.select(svgRef.current);
-        const width = 1400;
-        const height = 900;
+        const width = globalThis.innerWidth;
+        const height = globalThis.innerHeight;
         const scale = 2;
-        const x = -nodeData.x * scale + width / 2;
+        const effectiveWidth = width - 350;
+        const x = -nodeData.x * scale + effectiveWidth / 2;
         const y = -nodeData.y * scale + height / 2;
 
         const zoom = d3.zoom()
@@ -540,20 +581,16 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
 function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
   if (!node) return null;
 
-  const getSourceId = (link) => typeof link.source === "object" ? link.source.id : link.source;
-  const getTargetId = (link) => typeof link.target === "object" ? link.target.id : link.target;
+  const getSourceId = (link) =>
+    typeof link.source === "object" ? link.source.id : link.source;
+  const getTargetId = (link) =>
+    typeof link.target === "object" ? link.target.id : link.target;
 
   const renderNodeLink = (nodeName, isRecipe = false) => {
     const displayName = isRecipe ? nodeName.replace("recipe_", "") : nodeName;
     return (
       <span
-        style={{
-          color: theme.colors.primary,
-          cursor: "pointer",
-          textDecoration: "underline",
-          margin: "2px 0",
-          display: "inline-block"
-        }}
+        className="node-link"
         onClick={() => onNodeLinkClick(nodeName)}
       >
         {displayName}
@@ -571,8 +608,9 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       .map((link) => {
         const sourceId = getSourceId(link);
         return (
-          <div key={sourceId} style={{ margin: "4px 0" }}>
-            {renderNodeLink(sourceId)} <span style={{ color: theme.colors.gold }}>({link.qty})</span>
+          <div key={sourceId} className="recipe-item">
+            {renderNodeLink(sourceId)}{" "}
+            <span className="recipe-qty">({link.qty})</span>
           </div>
         );
       });
@@ -585,26 +623,27 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       .map((link) => {
         const targetId = getTargetId(link);
         return (
-          <div key={targetId} style={{ margin: "4px 0" }}>
-            {renderNodeLink(targetId)} <span style={{ color: theme.colors.gold }}>({link.qty})</span>
+          <div key={targetId} className="recipe-item">
+            {renderNodeLink(targetId)}{" "}
+            <span className="recipe-qty">({link.qty})</span>
           </div>
         );
       });
 
     content = (
       <div>
-        <div style={{ fontSize: "18px", fontWeight: "bold", color: theme.nodes.recipe.fill, marginBottom: "16px" }}>
+        <div className="recipe-title">
           📋 Recipe: {node.name}
         </div>
-        <div style={{ marginBottom: "12px" }}>
+        <div className="recipe-building">
           <strong>Building:</strong> {node.building}
         </div>
-        <div style={{ marginBottom: "16px" }}>
+        <div className="recipe-time">
           <strong>Time:</strong> {node.time}s
         </div>
         {inputs.length > 0 && (
-          <div style={{ marginBottom: "16px" }}>
-            <div style={{ fontWeight: "bold", color: theme.links.input, marginBottom: "8px" }}>
+          <div className="recipe-section">
+            <div className="recipe-section-title inputs">
               Inputs:
             </div>
             {inputs}
@@ -612,7 +651,7 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
         )}
         {outputs.length > 0 && (
           <div>
-            <div style={{ fontWeight: "bold", color: theme.links.output, marginBottom: "8px" }}>
+            <div className="recipe-section-title outputs">
               Outputs:
             </div>
             {outputs}
@@ -629,7 +668,7 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       .map((link) => {
         const targetId = getTargetId(link);
         return (
-          <div key={targetId} style={{ margin: "4px 0" }}>
+          <div key={targetId} className="recipe-item">
             {renderNodeLink(targetId, true)}
           </div>
         );
@@ -643,7 +682,7 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       .map((link) => {
         const sourceId = getSourceId(link);
         return (
-          <div key={sourceId} style={{ margin: "4px 0" }}>
+          <div key={sourceId} className="recipe-item">
             {renderNodeLink(sourceId, true)}
           </div>
         );
@@ -651,78 +690,49 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
 
     content = (
       <div>
-        <div style={{ fontSize: "18px", fontWeight: "bold", color: theme.nodes.material.fill, marginBottom: "16px" }}>
+        <div className="material-title">
           📦 Material: {node.name}
         </div>
-        {usedInRecipes.length > 0 ? (
-          <div style={{ marginBottom: "16px" }}>
-            <div style={{ fontWeight: "bold", color: theme.links.input, marginBottom: "8px" }}>
-              Used in recipes:
+        {usedInRecipes.length > 0
+          ? (
+            <div className="recipe-section">
+              <div className="recipe-section-title inputs">
+                Used in recipes:
+              </div>
+              {usedInRecipes}
             </div>
-            {usedInRecipes}
-          </div>
-        ) : (
-          <div style={{ color: theme.colors.lightGray, marginBottom: "16px" }}>
-            Not used in any recipes
-          </div>
-        )}
-        {producedByRecipes.length > 0 ? (
-          <div>
-            <div style={{ fontWeight: "bold", color: theme.links.output, marginBottom: "8px" }}>
-              Produced by recipes:
+          )
+          : (
+            <div className="material-empty">
+              Not used in any recipes
             </div>
-            {producedByRecipes}
-          </div>
-        ) : (
-          <div style={{ color: theme.colors.lightGray }}>
-            Not produced by any recipes
-          </div>
-        )}
+          )}
+        {producedByRecipes.length > 0
+          ? (
+            <div>
+              <div className="recipe-section-title outputs">
+                Produced by recipes:
+              </div>
+              {producedByRecipes}
+            </div>
+          )
+          : (
+            <div className="material-empty last">
+              Not produced by any recipes
+            </div>
+          )}
       </div>
     );
   }
 
   return (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      right: 0,
-      width: "350px",
-      height: "100vh",
-      backgroundColor: theme.colors.light,
-      border: `1px solid ${theme.colors.border}`,
-      borderRight: "none",
-      boxShadow: "-2px 0 8px rgba(0, 0, 0, 0.1)",
-      padding: "20px",
-      overflowY: "auto",
-      zIndex: 1000,
-      fontFamily: theme.text.family
-    }}>
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "20px",
-        borderBottom: `1px solid ${theme.colors.border}`,
-        paddingBottom: "10px"
-      }}>
-        <h3 style={{ margin: 0, color: theme.colors.dark }}>Node Details</h3>
+    <div className="detail-panel">
+      <div className="detail-panel-header">
+        <h3>Node Details</h3>
         <button
           type="button"
           onClick={onClose}
-          style={{
-            background: "none",
-            border: "none",
-            fontSize: "20px",
-            cursor: "pointer",
-            color: theme.colors.gray,
-            padding: "0",
-            width: "24px",
-            height: "24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
+          className="detail-panel-close"
         >
           ×
         </button>
@@ -746,7 +756,9 @@ function App() {
   };
 
   const handleNodeLinkClick = (nodeName) => {
-    const node = data?.nodes.find(n => n.id === nodeName || n.name === nodeName);
+    const node = data?.nodes.find((n) =>
+      n.id === nodeName || n.name === nodeName
+    );
     if (node) {
       setSelectedNode(node);
     }
@@ -765,7 +777,7 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{ padding: "20px", textAlign: "center" }}>
+      <div className="loading-container">
         <h2>Processing recipes data...</h2>
       </div>
     );
@@ -773,22 +785,37 @@ function App() {
 
   if (!data) {
     return (
-      <div style={{ padding: "20px", textAlign: "center", color: theme.colors.danger }}>
+      <div className="error-container">
         <h2>Error processing data</h2>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "20px", paddingRight: selectedNode ? "370px" : "20px" }}>
-      <h1>COI Recipe Graph</h1>
-      <div style={{ marginBottom: "20px" }}>
-        <p>
-          <strong>Legend:</strong>
-        </p>
-        <div style={{ display: "flex", gap: "20px", fontSize: "14px" }}>
+    <div className="app-container">
+      {/* Full-page visualization */}
+      <div className="visualization-container">
+        <ForceGraph
+          data={data}
+          selectedNode={selectedNode}
+          onNodeSelect={handleNodeSelect}
+        />
+      </div>
+
+      {/* Title overlay */}
+      <div className="title-overlay">
+        <h1>COI Recipe Graph</h1>
+      </div>
+
+      {/* Legend overlay */}
+      <div className={`legend-overlay ${selectedNode ? 'with-panel' : ''}`}>
+        <div className="legend-title">
+          Legend:
+        </div>
+        <div className="legend-items">
           <div>
-            <span style={{ color: theme.nodes.material.fill }}>●</span> Materials
+            <span style={{ color: theme.nodes.material.fill }}>●</span>{" "}
+            Materials
           </div>
           <div>
             <span style={{ color: theme.nodes.recipe.fill }}>●</span> Recipes
@@ -800,26 +827,18 @@ function App() {
             <span style={{ color: theme.links.output }}>→</span> Outputs
           </div>
         </div>
-        <p style={{ fontSize: "12px", color: theme.colors.gray, marginTop: "10px" }}>
-          Drag nodes to move them. Scroll to zoom. Hover over nodes for details. Click nodes to open detail panel.
-        </p>
+        <div className="legend-help">
+          Drag nodes to move them. Scroll to zoom. Hover over nodes for details.
+          Click nodes to open detail panel.
+        </div>
       </div>
-      <div
-        style={{
-          border: `1px solid ${theme.colors.border}`,
-          borderRadius: "4px",
-          overflow: "hidden",
-        }}
-      >
-        <ForceGraph
-          data={data}
-          selectedNode={selectedNode}
-          onNodeSelect={handleNodeSelect}
-        />
+
+      {/* Stats overlay */}
+      <div className="stats-overlay">
+        Nodes: {data?.nodes.length} | Links: {data?.links.length}
       </div>
-      <div style={{ marginTop: "20px", fontSize: "14px", color: theme.colors.gray }}>
-        <p>Nodes: {data?.nodes.length} | Links: {data?.links.length}</p>
-      </div>
+
+      {/* Detail panel overlay */}
       <DetailPanel
         node={selectedNode}
         data={data}

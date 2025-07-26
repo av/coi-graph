@@ -61019,48 +61019,46 @@ var recipes_default = [
 ];
 
 // src/app.jsx
-var inputColor = "indigo";
-var outputColor = "orange";
 var theme = {
   colors: {
-    primary: inputColor,
-    secondary: outputColor,
-    success: "#2ecc71",
-    danger: "#e74c3c",
-    dark: "#333",
-    light: "#fff",
-    gray: "#666",
-    lightGray: "#888",
-    gold: "#ffd700",
-    border: "#ccc",
+    primary: "var(--color-primary)",
+    secondary: "var(--color-secondary)",
+    success: "var(--color-success)",
+    danger: "var(--color-danger)",
+    dark: "var(--color-dark)",
+    light: "var(--color-light)",
+    gray: "var(--color-gray)",
+    lightGray: "var(--color-light-gray)",
+    gold: "var(--color-gold)",
+    border: "var(--color-border)",
     tooltip: {
-      background: "rgba(0, 0, 0, 0.9)",
-      text: "#fff"
+      background: "var(--color-tooltip-background)",
+      text: "var(--color-tooltip-text)"
     },
     highlight: {
       opacity: {
         full: 1,
         dimmed: 0.3,
-        faded: 0.2
+        faded: 0.1
       }
     }
   },
   nodes: {
     material: {
-      fill: inputColor,
+      fill: "var(--node-material-fill)",
       radius: 8
     },
     recipe: {
-      fill: outputColor,
+      fill: "var(--node-recipe-fill)",
       radius: 12
     },
-    stroke: "#fff",
+    stroke: "var(--node-stroke)",
     strokeWidth: 2
   },
   links: {
-    input: inputColor,
-    output: outputColor,
-    opacity: 0.7,
+    input: "var(--link-input-color)",
+    output: "var(--link-output-color)",
+    opacity: 0.6,
     width: {
       normal: 1,
       highlighted: 1,
@@ -61069,15 +61067,15 @@ var theme = {
   },
   text: {
     family: "Arial, sans-serif",
-    fill: "#333",
+    fill: "var(--text-fill)",
     size: {
-      recipe: 10,
-      material: 9
+      recipe: "12px",
+      material: "10px"
     }
   },
   collision: {
-    recipe: 25,
-    material: 20
+    recipe: 18,
+    material: 12
   }
 };
 function processRecipesData(recipes) {
@@ -61163,8 +61161,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     if (!data || !data.nodes.length) return;
     const svg2 = select_default2(svgRef.current);
     svg2.selectAll("*").remove();
-    const width = 1400;
-    const height = 900;
+    const width = globalThis.innerWidth;
+    const height = globalThis.innerHeight;
     svg2.attr("width", width).attr("height", height);
     const g = svg2.append("g");
     const zoom = zoom_default2().scaleExtent([
@@ -61176,7 +61174,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     svg2.call(zoom);
     const zoomToNode = (nodeData) => {
       const scale2 = 2;
-      const x4 = -nodeData.x * scale2 + width / 2;
+      const effectiveWidth = selectedNode ? width - 350 : width;
+      const x4 = -nodeData.x * scale2 + effectiveWidth / 2;
       const y4 = -nodeData.y * scale2 + height / 2;
       svg2.transition().duration(750).call(zoom.transform, identity5.translate(x4, y4).scale(scale2));
     };
@@ -61280,7 +61279,9 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         return sourceId === d.id || targetId === d.id ? theme.links.width.highlighted : theme.links.width.normal;
       });
       node.select("circle").attr("opacity", (nodeData2) => {
-        if (nodeData2.id === d.id) return theme.colors.highlight.opacity.full;
+        if (nodeData2.id === d.id) {
+          return theme.colors.highlight.opacity.full;
+        }
         const isConnected = data.links.some((linkData) => {
           const sourceId = getSourceId(linkData);
           const targetId = getTargetId(linkData);
@@ -61289,7 +61290,9 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
       });
       node.select("text").attr("opacity", (nodeData2) => {
-        if (nodeData2.id === d.id) return theme.colors.highlight.opacity.full;
+        if (nodeData2.id === d.id) {
+          return theme.colors.highlight.opacity.full;
+        }
         const isConnected = data.links.some((linkData) => {
           const sourceId = getSourceId(linkData);
           const targetId = getTargetId(linkData);
@@ -61334,10 +61337,11 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       const nodeData = data.nodes.find((n) => n.id === selectedNode.id);
       if (nodeData && nodeData.x !== void 0 && nodeData.y !== void 0) {
         const svg2 = select_default2(svgRef.current);
-        const width = 1400;
-        const height = 900;
+        const width = globalThis.innerWidth;
+        const height = globalThis.innerHeight;
         const scale2 = 2;
-        const x4 = -nodeData.x * scale2 + width / 2;
+        const effectiveWidth = width - 350;
+        const x4 = -nodeData.x * scale2 + effectiveWidth / 2;
         const y4 = -nodeData.y * scale2 + height / 2;
         const zoom = zoom_default2().scaleExtent([
           0.1,
@@ -61363,13 +61367,7 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
   const renderNodeLink = (nodeName, isRecipe = false) => {
     const displayName = isRecipe ? nodeName.replace("recipe_", "") : nodeName;
     return /* @__PURE__ */ import_npm_react.default.createElement("span", {
-      style: {
-        color: theme.colors.primary,
-        cursor: "pointer",
-        textDecoration: "underline",
-        margin: "2px 0",
-        display: "inline-block"
-      },
+      className: "node-link",
       onClick: () => onNodeLinkClick(nodeName)
     }, displayName);
   };
@@ -61382,13 +61380,9 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       const sourceId = getSourceId(link3);
       return /* @__PURE__ */ import_npm_react.default.createElement("div", {
         key: sourceId,
-        style: {
-          margin: "4px 0"
-        }
+        className: "recipe-item"
       }, renderNodeLink(sourceId), " ", /* @__PURE__ */ import_npm_react.default.createElement("span", {
-        style: {
-          color: theme.colors.gold
-        }
+        className: "recipe-qty"
       }, "(", link3.qty, ")"));
     });
     const outputs = data.links.filter((link3) => {
@@ -61398,46 +61392,23 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       const targetId = getTargetId(link3);
       return /* @__PURE__ */ import_npm_react.default.createElement("div", {
         key: targetId,
-        style: {
-          margin: "4px 0"
-        }
+        className: "recipe-item"
       }, renderNodeLink(targetId), " ", /* @__PURE__ */ import_npm_react.default.createElement("span", {
-        style: {
-          color: theme.colors.gold
-        }
+        className: "recipe-qty"
       }, "(", link3.qty, ")"));
     });
     content = /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        fontSize: "18px",
-        fontWeight: "bold",
-        color: theme.nodes.recipe.fill,
-        marginBottom: "16px"
-      }
+      className: "recipe-title"
     }, "\u{1F4CB} Recipe: ", node.name), /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        marginBottom: "12px"
-      }
+      className: "recipe-building"
     }, /* @__PURE__ */ import_npm_react.default.createElement("strong", null, "Building:"), " ", node.building), /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        marginBottom: "16px"
-      }
+      className: "recipe-time"
     }, /* @__PURE__ */ import_npm_react.default.createElement("strong", null, "Time:"), " ", node.time, "s"), inputs.length > 0 && /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        marginBottom: "16px"
-      }
+      className: "recipe-section"
     }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        fontWeight: "bold",
-        color: theme.links.input,
-        marginBottom: "8px"
-      }
+      className: "recipe-section-title inputs"
     }, "Inputs:"), inputs), outputs.length > 0 && /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        fontWeight: "bold",
-        color: theme.links.output,
-        marginBottom: "8px"
-      }
+      className: "recipe-section-title outputs"
     }, "Outputs:"), outputs));
   } else {
     const usedInRecipes = data.links.filter((link3) => {
@@ -61447,9 +61418,7 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       const targetId = getTargetId(link3);
       return /* @__PURE__ */ import_npm_react.default.createElement("div", {
         key: targetId,
-        style: {
-          margin: "4px 0"
-        }
+        className: "recipe-item"
       }, renderNodeLink(targetId, true));
     });
     const producedByRecipes = data.links.filter((link3) => {
@@ -61459,91 +61428,31 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       const sourceId = getSourceId(link3);
       return /* @__PURE__ */ import_npm_react.default.createElement("div", {
         key: sourceId,
-        style: {
-          margin: "4px 0"
-        }
+        className: "recipe-item"
       }, renderNodeLink(sourceId, true));
     });
     content = /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        fontSize: "18px",
-        fontWeight: "bold",
-        color: theme.nodes.material.fill,
-        marginBottom: "16px"
-      }
+      className: "material-title"
     }, "\u{1F4E6} Material: ", node.name), usedInRecipes.length > 0 ? /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        marginBottom: "16px"
-      }
+      className: "recipe-section"
     }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        fontWeight: "bold",
-        color: theme.links.input,
-        marginBottom: "8px"
-      }
+      className: "recipe-section-title inputs"
     }, "Used in recipes:"), usedInRecipes) : /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        color: theme.colors.lightGray,
-        marginBottom: "16px"
-      }
+      className: "material-empty"
     }, "Not used in any recipes"), producedByRecipes.length > 0 ? /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        fontWeight: "bold",
-        color: theme.links.output,
-        marginBottom: "8px"
-      }
+      className: "recipe-section-title outputs"
     }, "Produced by recipes:"), producedByRecipes) : /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        color: theme.colors.lightGray
-      }
+      className: "material-empty last"
     }, "Not produced by any recipes"));
   }
   return /* @__PURE__ */ import_npm_react.default.createElement("div", {
-    style: {
-      position: "fixed",
-      top: 0,
-      right: 0,
-      width: "350px",
-      height: "100vh",
-      backgroundColor: theme.colors.light,
-      border: `1px solid ${theme.colors.border}`,
-      borderRight: "none",
-      boxShadow: "-2px 0 8px rgba(0, 0, 0, 0.1)",
-      padding: "20px",
-      overflowY: "auto",
-      zIndex: 1e3,
-      fontFamily: theme.text.family
-    }
+    className: "detail-panel"
   }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: "20px",
-      borderBottom: `1px solid ${theme.colors.border}`,
-      paddingBottom: "10px"
-    }
-  }, /* @__PURE__ */ import_npm_react.default.createElement("h3", {
-    style: {
-      margin: 0,
-      color: theme.colors.dark
-    }
-  }, "Node Details"), /* @__PURE__ */ import_npm_react.default.createElement("button", {
+    className: "detail-panel-header"
+  }, /* @__PURE__ */ import_npm_react.default.createElement("h3", null, "Node Details"), /* @__PURE__ */ import_npm_react.default.createElement("button", {
     type: "button",
     onClick: onClose,
-    style: {
-      background: "none",
-      border: "none",
-      fontSize: "20px",
-      cursor: "pointer",
-      color: theme.colors.gray,
-      padding: "0",
-      width: "24px",
-      height: "24px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }
+    className: "detail-panel-close"
   }, "\xD7")), content);
 }
 function App() {
@@ -61574,41 +61483,35 @@ function App() {
   }, []);
   if (loading) {
     return /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        padding: "20px",
-        textAlign: "center"
-      }
+      className: "loading-container"
     }, /* @__PURE__ */ import_npm_react.default.createElement("h2", null, "Processing recipes data..."));
   }
   if (!data) {
     return /* @__PURE__ */ import_npm_react.default.createElement("div", {
-      style: {
-        padding: "20px",
-        textAlign: "center",
-        color: theme.colors.danger
-      }
+      className: "error-container"
     }, /* @__PURE__ */ import_npm_react.default.createElement("h2", null, "Error processing data"));
   }
   return /* @__PURE__ */ import_npm_react.default.createElement("div", {
-    style: {
-      padding: "20px",
-      paddingRight: selectedNode ? "370px" : "20px"
-    }
-  }, /* @__PURE__ */ import_npm_react.default.createElement("h1", null, "COI Recipe Graph"), /* @__PURE__ */ import_npm_react.default.createElement("div", {
-    style: {
-      marginBottom: "20px"
-    }
-  }, /* @__PURE__ */ import_npm_react.default.createElement("p", null, /* @__PURE__ */ import_npm_react.default.createElement("strong", null, "Legend:")), /* @__PURE__ */ import_npm_react.default.createElement("div", {
-    style: {
-      display: "flex",
-      gap: "20px",
-      fontSize: "14px"
-    }
+    className: "app-container"
+  }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    className: "visualization-container"
+  }, /* @__PURE__ */ import_npm_react.default.createElement(ForceGraph, {
+    data,
+    selectedNode,
+    onNodeSelect: handleNodeSelect
+  })), /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    className: "title-overlay"
+  }, /* @__PURE__ */ import_npm_react.default.createElement("h1", null, "COI Recipe Graph")), /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    className: `legend-overlay ${selectedNode ? "with-panel" : ""}`
+  }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    className: "legend-title"
+  }, "Legend:"), /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    className: "legend-items"
   }, /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
       color: theme.nodes.material.fill
     }
-  }, "\u25CF"), " Materials"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
+  }, "\u25CF"), " ", "Materials"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
       color: theme.nodes.recipe.fill
     }
@@ -61620,29 +61523,11 @@ function App() {
     style: {
       color: theme.links.output
     }
-  }, "\u2192"), " Outputs")), /* @__PURE__ */ import_npm_react.default.createElement("p", {
-    style: {
-      fontSize: "12px",
-      color: theme.colors.gray,
-      marginTop: "10px"
-    }
+  }, "\u2192"), " Outputs")), /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    className: "legend-help"
   }, "Drag nodes to move them. Scroll to zoom. Hover over nodes for details. Click nodes to open detail panel.")), /* @__PURE__ */ import_npm_react.default.createElement("div", {
-    style: {
-      border: `1px solid ${theme.colors.border}`,
-      borderRadius: "4px",
-      overflow: "hidden"
-    }
-  }, /* @__PURE__ */ import_npm_react.default.createElement(ForceGraph, {
-    data,
-    selectedNode,
-    onNodeSelect: handleNodeSelect
-  })), /* @__PURE__ */ import_npm_react.default.createElement("div", {
-    style: {
-      marginTop: "20px",
-      fontSize: "14px",
-      color: theme.colors.gray
-    }
-  }, /* @__PURE__ */ import_npm_react.default.createElement("p", null, "Nodes: ", data?.nodes.length, " | Links: ", data?.links.length)), /* @__PURE__ */ import_npm_react.default.createElement(DetailPanel, {
+    className: "stats-overlay"
+  }, "Nodes: ", data?.nodes.length, " | Links: ", data?.links.length), /* @__PURE__ */ import_npm_react.default.createElement(DetailPanel, {
     node: selectedNode,
     data,
     onClose: handleClosePanel,
