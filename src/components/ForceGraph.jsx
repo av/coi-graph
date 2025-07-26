@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from "npm:react";
 import * as d3 from "npm:d3";
 import { theme } from "../theme.js";
-import { calculateConnections, calculateDepth } from "../utils/dataProcessor.js";
+import {
+  calculateConnections,
+  calculateDepth,
+} from "../utils/dataProcessor.js";
 
 export function ForceGraph({ data, selectedNode, onNodeSelect }) {
   const svgRef = useRef();
@@ -90,18 +93,53 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const { connectionsMap } = calculateConnections(data);
     const { depthMap } = calculateDepth(data);
 
-    const simulation = d3.forceSimulation(data.nodes)
+    // Separate clustered and regular nodes
+    const clusteredNodesData = data.nodes.filter((n) => n.type === "cluster");
+    const regularNodesData = data.nodes.filter((n) => n.type !== "cluster");
+
+    // Create positions for nodes inside clusters
+    const allNodesWithPositions = [];
+
+    // Add regular nodes
+    regularNodesData.forEach((node) => {
+      allNodesWithPositions.push(node);
+    });
+
+    // Add cluster nodes and their internal nodes
+    clusteredNodesData.forEach((clusterNode) => {
+      allNodesWithPositions.push(clusterNode);
+
+      if (clusterNode.clusteredNodes) {
+        clusterNode.clusteredNodes.forEach((internalNode, index) => {
+          const angle = (index / clusterNode.clusteredNodes.length) * 2 *
+            Math.PI;
+          const radius = 30;
+          const internalNodeCopy = {
+            ...internalNode,
+            id: `${clusterNode.id}_internal_${internalNode.id}`,
+            isInternal: true,
+            parentCluster: clusterNode.id,
+            offsetX: Math.cos(angle) * radius,
+            offsetY: Math.sin(angle) * radius,
+          };
+          allNodesWithPositions.push(internalNodeCopy);
+        });
+      }
+    });
+
+    const simulation = d3.forceSimulation(allNodesWithPositions)
       .force(
         "link",
         d3.forceLink(data.links).id((d) => d.id).distance((d) => {
-          if (d.type === "invisible") return 40;
-
-          return 5;
-        })
+          if (d.type === "invisible") return 10;
+          return 100;
+        }),
       )
       .force(
         "charge",
         d3.forceManyBody().strength((d) => {
+          if (d.isInternal) return -10;
+
           const parentsConnections = data.links.flatMap(
             (link) => {
               const sourceId = getSourceId(link);
@@ -117,12 +155,14 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
             return acc + connectionsMap.get(id) || 0;
           }, 0);
 
-          return parentsConnections * -1;
+          return parentsConnections * (d.type === "cluster" ? -10 : -1);
         }),
       )
       .force(
         "collision",
         d3.forceCollide().radius((d) => {
+          if (d.type === "cluster") return 60;
+          if (d.isInternal) return 8;
           return d.type === "recipe"
             ? theme.collision.recipe
             : theme.collision.material;
@@ -131,9 +171,10 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .force(
         "yLayer",
         d3.forceY().y((d) => {
+          if (d.isInternal) return 0;
           const depth = depthMap.get(d.id) || 0;
           return depth * 20;
-        }).strength(0.1),
+        }).strength((d) => d.isInternal ? 0 : 0.1),
       )
       .alphaDecay(0.01);
 
@@ -150,7 +191,10 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         (d) => d.type === "input" ? theme.links.input : theme.links.output,
       )
       .attr("stroke-width", theme.links.width.default)
-      .attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity)
+      .attr(
+        "stroke-opacity",
+        (d) => d.type === "invisible" ? 0 : theme.links.opacity,
+      )
       .attr("marker-end", (d) => {
         if (d.type === "invisible") return "none";
         const targetId = getTargetId(d);
@@ -163,7 +207,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
     const node = g.append("g")
       .selectAll("g")
-      .data(data.nodes)
+      .data(allNodesWithPositions)
       .join("g")
       .call(
         d3.drag()
@@ -175,30 +219,90 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     node.append("circle")
       .attr(
         "r",
-        (d) =>
-          d.type === "recipe"
+        (d) => {
+          if (d.type === "cluster") return 50;
+          if (d.isInternal) return 6;
+          return d.type === "recipe"
             ? theme.nodes.recipe.radius
-            : theme.nodes.material.radius,
+            : theme.nodes.material.radius;
+        },
       )
       .attr(
         "fill",
-        (d) =>
-          d.type === "recipe"
+        (d) => {
+          if (d.type === "cluster") return "#666666";
+          if (d.isInternal) {
+            return d.originalType === "recipe" || d.type === "recipe"
+              ? theme.nodes.recipe.fill
+              : theme.nodes.material.fill;
+          }
+          return d.type === "recipe"
             ? theme.nodes.recipe.fill
-            : theme.nodes.material.fill,
+            : theme.nodes.material.fill;
+        },
       )
-      .attr("stroke", theme.nodes.stroke)
-      .attr("stroke-width", theme.nodes.strokeWidth)
+      .attr(
+        "stroke",
+        (d) => d.type === "cluster" ? "#333333" : theme.nodes.stroke,
+      )
+      .attr(
+        "stroke-width",
+        (d) => d.type === "cluster" ? 3 : theme.nodes.strokeWidth,
+      )
+      .attr("fill-opacity", (d) => {
+        if (d.type === "cluster") return 0.3;
+        if (d.isInternal) return 0.8;
+        return 1;
+      })
       .on("click", function (event, d) {
         event.stopPropagation();
-        onNodeSelect(d);
-        zoomToNode(d);
+        if (d.type === "cluster") {
+          onNodeSelect({
+            ...d,
+            displayInfo: {
+              type: "cluster",
+              nodeCount: d.clusteredNodes.length,
+              nodes: d.clusteredNodes,
+            },
+          });
+        } else if (!d.isInternal) {
+          onNodeSelect(d);
+        }
+        if (!d.isInternal) {
+          zoomToNode(d);
+        }
       })
       .on("mouseover", function (event, d) {
         const nodeData = d;
 
         let tooltipContent = "";
-        if (nodeData.type === "recipe") {
+        if (nodeData.type === "cluster") {
+          const clusterInfo = nodeData.clusteredNodes.map((node) =>
+            `<div style="margin: 2px 0; font-size: 11px;">${node.name} (${node.type})</div>`
+          ).join("");
+
+          tooltipContent = `
+            <div style="font-weight: bold; color: #666666; margin-bottom: 8px;">🔗 Cluster: ${nodeData.clusteredNodes.length} nodes</div>
+            <div style="margin-bottom: 4px;"><strong>Clustered nodes:</strong></div>
+            ${clusterInfo}
+            <div style="margin-top: 8px; font-size: 10px; color: ${theme.colors.lightGray};">
+              These nodes have identical input/output connections
+            </div>
+          `;
+        } else if (nodeData.isInternal) {
+          tooltipContent = `
+            <div style="font-weight: bold; color: ${
+            nodeData.type === "recipe"
+              ? theme.nodes.recipe.fill
+              : theme.nodes.material.fill
+          }; margin-bottom: 8px;">
+              ${nodeData.type === "recipe" ? "📋" : "📦"} ${nodeData.name}
+            </div>
+            <div style="font-size: 10px; color: ${theme.colors.lightGray};">
+              Part of cluster
+            </div>
+          `;
+        } else if (nodeData.type === "recipe") {
           const inputs = data.links
             .filter((link) => {
               const targetId = getTargetId(link);
@@ -311,6 +415,9 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
             if (nodeData.id === d.id) {
               return theme.colors.highlight.opacity.full;
             }
+            if (nodeData.isInternal) {
+              return theme.colors.highlight.opacity.dimmed;
+            }
             const isConnected = data.links.some((linkData) => {
               if (linkData.type === "invisible") return false;
               const sourceId = getSourceId(linkData);
@@ -327,6 +434,9 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           .attr("opacity", (nodeData) => {
             if (nodeData.id === d.id) {
               return theme.colors.highlight.opacity.full;
+            }
+            if (nodeData.isInternal) {
+              return theme.colors.highlight.opacity.dimmed;
             }
             const isConnected = data.links.some((linkData) => {
               if (linkData.type === "invisible") return false;
@@ -345,7 +455,10 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
         // Reset all links
         link
-          .attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity)
+          .attr(
+            "stroke-opacity",
+            (d) => d.type === "invisible" ? 0 : theme.links.opacity,
+          )
           .attr("stroke-width", theme.links.width.normal);
 
         // Reset all nodes
@@ -357,22 +470,54 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
 
     node.append("text")
-      .text((d) => d.name)
+      .text((d) => {
+        if (d.type === "cluster") return d.name;
+        if (d.isInternal) {
+          return d.name.length > 8
+            ? d.name.substring(0, 6) + "..."
+            : d.name;
+        }
+        return d.name;
+      })
       .attr(
         "font-size",
-        (d) =>
-          d.type === "recipe"
+        (d) => {
+          if (d.type === "cluster") return "12px";
+          if (d.isInternal) return "8px";
+          return d.type === "recipe"
             ? theme.text.size.recipe
-            : theme.text.size.material,
+            : theme.text.size.material;
+        },
       )
       .attr("font-family", theme.text.family)
       .attr("text-anchor", "middle")
-      .attr("dy", (d) => d.type === "recipe" ? 18 : 15)
-      .attr("fill", theme.text.fill)
-      .attr("font-weight", (d) => d.type === "recipe" ? "bold" : "normal")
+      .attr("dy", (d) => {
+        if (d.type === "cluster") return 65;
+        if (d.isInternal) return 3;
+        return d.type === "recipe" ? 18 : 15;
+      })
+      .attr("fill", (d) => d.type === "cluster" ? "#333333" : theme.text.fill)
+      .attr("font-weight", (d) => {
+        if (d.type === "cluster") return "bold";
+        if (d.isInternal) return "normal";
+        return d.type === "recipe" ? "bold" : "normal";
+      })
       .style("pointer-events", "none");
 
     simulation.on("tick", () => {
+      // Update internal node positions relative to their cluster
+      allNodesWithPositions.forEach((d) => {
+        if (d.isInternal && d.parentCluster) {
+          const clusterNode = allNodesWithPositions.find((n) =>
+            n.id === d.parentCluster
+          );
+          if (clusterNode) {
+            d.x = clusterNode.x + d.offsetX;
+            d.y = clusterNode.y + d.offsetY;
+          }
+        }
+      });
+
       link
         .attr("x1", (d) => d.source.x)
         .attr("y1", (d) => d.source.y)
@@ -385,19 +530,25 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
     function dragstarted(event, d) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
+      if (!d.isInternal) {
+        d.fx = d.x;
+        d.fy = d.y;
+      }
     }
 
     function dragged(event, d) {
-      d.fx = event.x;
-      d.fy = event.y;
+      if (!d.isInternal) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
     }
 
     function dragended(event, d) {
       if (!event.active) simulation.alphaTarget(0);
-      d.fx = null;
-      d.fy = null;
+      if (!d.isInternal) {
+        d.fx = null;
+        d.fy = null;
+      }
     }
 
     return () => {
@@ -408,7 +559,16 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
   useEffect(() => {
     if (selectedNode && data) {
-      const nodeData = data.nodes.find((n) => n.id === selectedNode.id);
+      // First try to find the node in the original data
+      let nodeData = data.nodes.find((n) => n.id === selectedNode.id);
+
+      // If not found and we have clustering, the node might be internal
+      if (!nodeData && svgRef.current) {
+        const svg = d3.select(svgRef.current);
+        const allNodes = svg.selectAll("g g").data();
+        nodeData = allNodes.find((n) => n.id === selectedNode.id);
+      }
+
       if (nodeData && nodeData.x !== undefined && nodeData.y !== undefined) {
         const svg = d3.select(svgRef.current);
         const width = globalThis.innerWidth;

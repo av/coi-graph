@@ -80,22 +80,40 @@ export function processRecipesData(recipes) {
     });
   });
 
-  // Add building links between recipes in the same building
-  const recipesByBuilding = new Map();
+  // Create invisible links for recipes with 2+ shared inputs or outputs
+  const recipeInputsOutputs = new Map();
   recipes.forEach((recipe) => {
-    if (!recipe.RecipeId || !recipe.Building) return;
+    if (!recipe.RecipeId) return;
 
-    const building = recipe.Building;
-    if (!recipesByBuilding.has(building)) {
-      recipesByBuilding.set(building, []);
+    const recipeItems = new Set();
+
+    for (let i = 1; i <= 6; i++) {
+      const inputName = recipe[`Input${i}Name`];
+      const inputQty = parseInt(recipe[`Input${i}Qty`]) || 0;
+      const outputName = recipe[`Output${i}Name`];
+      const outputQty = parseInt(recipe[`Output${i}Qty`]) || 0;
+
+      if (inputName && inputQty > 0) {
+        recipeItems.add(inputName);
+      }
+      if (outputName && outputQty > 0) {
+        recipeItems.add(outputName);
+      }
     }
-    recipesByBuilding.get(building).push(`recipe_${recipe.RecipeId}`);
+
+    recipeInputsOutputs.set(`recipe_${recipe.RecipeId}`, recipeItems);
   });
 
-  // Create links between recipes in the same building
-  recipesByBuilding.forEach((recipeIds) => {
-    for (let i = 0; i < recipeIds.length; i++) {
-      for (let j = i + 1; j < recipeIds.length; j++) {
+  // Find recipes with 2+ shared items
+  const recipeIds = Array.from(recipeInputsOutputs.keys());
+  for (let i = 0; i < recipeIds.length; i++) {
+    for (let j = i + 1; j < recipeIds.length; j++) {
+      const recipe1Items = recipeInputsOutputs.get(recipeIds[i]);
+      const recipe2Items = recipeInputsOutputs.get(recipeIds[j]);
+
+      const sharedItems = [...recipe1Items].filter(item => recipe2Items.has(item));
+
+      if (sharedItems.length >= 2) {
         links.push({
           source: recipeIds[i],
           target: recipeIds[j],
@@ -103,12 +121,14 @@ export function processRecipesData(recipes) {
         });
       }
     }
-  });
+  }
 
-  return {
+  const result = {
     nodes: Array.from(nodes.values()),
     links: links,
   };
+
+  return result;
 }
 
 export function calculateConnections(data) {
@@ -198,4 +218,89 @@ export function calculateDepth(data) {
     depthMap,
     maxDepth: Math.max(...Array.from(depthMap.values())),
   };
+}
+
+export function clusterNodes(data) {
+  const getConnectionSignature = (nodeId, links) => {
+    const inputs = links
+      .filter(link => link.target === nodeId && link.type !== "invisible")
+      .map(link => `${link.source}:${link.type}`)
+      .sort();
+
+    const outputs = links
+      .filter(link => link.source === nodeId && link.type !== "invisible")
+      .map(link => `${link.target}:${link.type}`)
+      .sort();
+
+    return `inputs:[${inputs.join(',')}]|outputs:[${outputs.join(',')}]`;
+  };
+
+  const nodesBySignature = new Map();
+
+  data.nodes.forEach(node => {
+    const signature = getConnectionSignature(node.id, data.links);
+    if (!nodesBySignature.has(signature)) {
+      nodesBySignature.set(signature, []);
+    }
+    nodesBySignature.get(signature).push(node);
+  });
+
+  const clusteredNodes = [];
+  const clusteredLinks = [];
+  const nodeMapping = new Map();
+
+  nodesBySignature.forEach((nodesGroup, _signature) => {
+    if (nodesGroup.length === 1) {
+      const node = nodesGroup[0];
+      clusteredNodes.push(node);
+      nodeMapping.set(node.id, node.id);
+    } else {
+      const clusterNodeId = `cluster_${nodesGroup.map(n => n.id).join('_')}`;
+      const clusteredNode = {
+        id: clusterNodeId,
+        name: `Cluster (${nodesGroup.length} nodes)`,
+        type: "cluster",
+        clusteredNodes: nodesGroup,
+        originalType: nodesGroup[0].type,
+      };
+
+      clusteredNodes.push(clusteredNode);
+
+      nodesGroup.forEach(node => {
+        nodeMapping.set(node.id, clusterNodeId);
+      });
+    }
+  });
+
+  const processedLinks = new Set();
+  data.links.forEach(link => {
+    const newSource = nodeMapping.get(link.source) || link.source;
+    const newTarget = nodeMapping.get(link.target) || link.target;
+
+    if (newSource === newTarget) {
+      return;
+    }
+
+    const linkKey = `${newSource}->${newTarget}:${link.type}`;
+    if (processedLinks.has(linkKey)) {
+      return;
+    }
+    processedLinks.add(linkKey);
+
+    clusteredLinks.push({
+      ...link,
+      source: newSource,
+      target: newTarget,
+    });
+  });
+
+  return {
+    nodes: clusteredNodes,
+    links: clusteredLinks,
+  };
+}
+
+export function processRecipesDataWithClustering(recipes) {
+  const data = processRecipesData(recipes);
+  return clusterNodes(data);
 }
