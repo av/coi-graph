@@ -61378,10 +61378,16 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     };
     const tooltip = select_default2("body").append("div").attr("class", "tooltip").style("position", "absolute").style("visibility", "hidden").style("background", theme.colors.tooltip.background).style("color", theme.colors.tooltip.text).style("padding", "12px").style("border-radius", "6px").style("font-size", "12px").style("font-family", theme.text.family).style("max-width", "300px").style("box-shadow", "0 4px 8px rgba(0, 0, 0, 0.3)").style("z-index", "1000").style("pointer-events", "none");
     const defs = svg2.append("defs");
-    defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 30).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
-    defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 24).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 22).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 18).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    defs.append("marker").attr("id", "arrowhead-cluster").attr("viewBox", "0 -5 10 10").attr("refX", 60).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     const getSourceId = (link4) => typeof link4.source === "object" ? link4.source.id : link4.source;
     const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
+    const getNodeRadius = (node2) => {
+      if (node2.type === "cluster") return 50;
+      if (node2.isInternal) return 6;
+      return node2.type === "recipe" ? theme.nodes.recipe.radius : theme.nodes.material.radius;
+    };
     const { connectionsMap } = calculateConnections(data);
     const { depthMap } = calculateDepth(data);
     const clusteredNodesData = data.nodes.filter((n) => n.type === "cluster");
@@ -61442,7 +61448,10 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("stroke-width", theme.links.width.default).attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("marker-end", (d) => {
       if (d.type === "invisible") return "none";
       const targetId = getTargetId(d);
-      const targetNode = data.nodes.find((node2) => node2.id === targetId);
+      const targetNode = allNodesWithPositions.find((node2) => node2.id === targetId);
+      if (targetNode && targetNode.type === "cluster") {
+        return "url(#arrowhead-cluster)";
+      }
       return targetNode && targetNode.type === "recipe" ? "url(#arrowhead-recipe)" : "url(#arrowhead-material)";
     }).attr("marker-end-fill", "#600");
     const node = g.append("g").selectAll("g").data(allNodesWithPositions).join("g").call(drag_default().on("start", dragstarted).on("drag", dragged).on("end", dragended));
@@ -61456,7 +61465,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         return d.originalType === "recipe" || d.type === "recipe" ? theme.nodes.recipe.fill : theme.nodes.material.fill;
       }
       return d.type === "recipe" ? theme.nodes.recipe.fill : theme.nodes.material.fill;
-    }).attr("stroke", (d) => d.type === "cluster" ? "#333333" : theme.nodes.stroke).attr("stroke-width", (d) => d.type === "cluster" ? 3 : theme.nodes.strokeWidth).attr("fill-opacity", (d) => {
+    }).attr("stroke", (d) => d.type === "cluster" ? "none" : theme.nodes.stroke).attr("stroke-width", (d) => d.type === "cluster" ? 0 : theme.nodes.strokeWidth).attr("fill-opacity", (d) => {
       if (d.type === "cluster") return 0.3;
       if (d.isInternal) return 0.8;
       return 1;
@@ -61594,9 +61603,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     });
     node.append("text").text((d) => {
       if (d.type === "cluster") return d.name;
-      if (d.isInternal) {
-        return d.name.length > 8 ? d.name.substring(0, 6) + "..." : d.name;
-      }
+      if (d.isInternal) return d.name;
       return d.name;
     }).attr("font-size", (d) => {
       if (d.type === "cluster") return "12px";
@@ -61621,7 +61628,35 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
           }
         }
       });
-      link3.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
+      link3.attr("x1", (d) => {
+        const sourceRadius = getNodeRadius(d.source);
+        const dx = d.target.x - d.source.x;
+        const dy = d.target.y - d.source.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance === 0) return d.source.x;
+        return d.source.x + dx / distance * sourceRadius;
+      }).attr("y1", (d) => {
+        const sourceRadius = getNodeRadius(d.source);
+        const dx = d.target.x - d.source.x;
+        const dy = d.target.y - d.source.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance === 0) return d.source.y;
+        return d.source.y + dy / distance * sourceRadius;
+      }).attr("x2", (d) => {
+        const targetRadius = getNodeRadius(d.target);
+        const dx = d.target.x - d.source.x;
+        const dy = d.target.y - d.source.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance === 0) return d.target.x;
+        return d.target.x - dx / distance * targetRadius;
+      }).attr("y2", (d) => {
+        const targetRadius = getNodeRadius(d.target);
+        const dx = d.target.x - d.source.x;
+        const dy = d.target.y - d.source.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance === 0) return d.target.y;
+        return d.target.y - dy / distance * targetRadius;
+      });
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
     function dragstarted(event, d) {

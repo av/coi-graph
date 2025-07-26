@@ -63,7 +63,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     defs.append("marker")
       .attr("id", "arrowhead-recipe")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 30) // 12 (recipe radius) + 10 (marker length)
+      .attr("refX", 22) // 12 (recipe radius) + 10 (marker length)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -76,7 +76,20 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     defs.append("marker")
       .attr("id", "arrowhead-material")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 24) // 8 (material radius) + 10 (marker length)
+      .attr("refX", 18) // 8 (material radius) + 10 (marker length)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "context-stroke");
+
+    // Cluster node marker (large radius)
+    defs.append("marker")
+      .attr("id", "arrowhead-cluster")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 60) // 50 (cluster radius) + 10 (marker length)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -89,6 +102,14 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       typeof link.source === "object" ? link.source.id : link.source;
     const getTargetId = (link) =>
       typeof link.target === "object" ? link.target.id : link.target;
+
+    const getNodeRadius = (node) => {
+      if (node.type === "cluster") return 50;
+      if (node.isInternal) return 6;
+      return node.type === "recipe"
+        ? theme.nodes.recipe.radius
+        : theme.nodes.material.radius;
+    };
 
     const { connectionsMap } = calculateConnections(data);
     const { depthMap } = calculateDepth(data);
@@ -198,7 +219,10 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .attr("marker-end", (d) => {
         if (d.type === "invisible") return "none";
         const targetId = getTargetId(d);
-        const targetNode = data.nodes.find((node) => node.id === targetId);
+        const targetNode = allNodesWithPositions.find((node) => node.id === targetId);
+        if (targetNode && targetNode.type === "cluster") {
+          return "url(#arrowhead-cluster)";
+        }
         return targetNode && targetNode.type === "recipe"
           ? "url(#arrowhead-recipe)"
           : "url(#arrowhead-material)";
@@ -243,11 +267,11 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       )
       .attr(
         "stroke",
-        (d) => d.type === "cluster" ? "#333333" : theme.nodes.stroke,
+        (d) => d.type === "cluster" ? "none" : theme.nodes.stroke,
       )
       .attr(
         "stroke-width",
-        (d) => d.type === "cluster" ? 3 : theme.nodes.strokeWidth,
+        (d) => d.type === "cluster" ? 0 : theme.nodes.strokeWidth,
       )
       .attr("fill-opacity", (d) => {
         if (d.type === "cluster") return 0.3;
@@ -472,11 +496,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     node.append("text")
       .text((d) => {
         if (d.type === "cluster") return d.name;
-        if (d.isInternal) {
-          return d.name.length > 8
-            ? d.name.substring(0, 6) + "..."
-            : d.name;
-        }
+        if (d.isInternal) return d.name;
         return d.name;
       })
       .attr(
@@ -519,10 +539,38 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
 
       link
-        .attr("x1", (d) => d.source.x)
-        .attr("y1", (d) => d.source.y)
-        .attr("x2", (d) => d.target.x)
-        .attr("y2", (d) => d.target.y);
+        .attr("x1", (d) => {
+          const sourceRadius = getNodeRadius(d.source);
+          const dx = d.target.x - d.source.x;
+          const dy = d.target.y - d.source.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance === 0) return d.source.x;
+          return d.source.x + (dx / distance) * sourceRadius;
+        })
+        .attr("y1", (d) => {
+          const sourceRadius = getNodeRadius(d.source);
+          const dx = d.target.x - d.source.x;
+          const dy = d.target.y - d.source.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance === 0) return d.source.y;
+          return d.source.y + (dy / distance) * sourceRadius;
+        })
+        .attr("x2", (d) => {
+          const targetRadius = getNodeRadius(d.target);
+          const dx = d.target.x - d.source.x;
+          const dy = d.target.y - d.source.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance === 0) return d.target.x;
+          return d.target.x - (dx / distance) * targetRadius;
+        })
+        .attr("y2", (d) => {
+          const targetRadius = getNodeRadius(d.target);
+          const dx = d.target.x - d.source.x;
+          const dy = d.target.y - d.source.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance === 0) return d.target.y;
+          return d.target.y - (dy / distance) * targetRadius;
+        });
 
       node
         .attr("transform", (d) => `translate(${d.x},${d.y})`);
