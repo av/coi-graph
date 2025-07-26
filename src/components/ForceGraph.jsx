@@ -93,7 +93,11 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const simulation = d3.forceSimulation(data.nodes)
       .force(
         "link",
-        d3.forceLink(data.links).id((d) => d.id).distance(5)
+        d3.forceLink(data.links).id((d) => d.id).distance((d) => {
+          if (d.type === "invisible") return 40;
+
+          return 5;
+        })
       )
       .force(
         "charge",
@@ -146,8 +150,9 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         (d) => d.type === "input" ? theme.links.input : theme.links.output,
       )
       .attr("stroke-width", theme.links.width.default)
-      .attr("stroke-opacity", theme.links.opacity)
+      .attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity)
       .attr("marker-end", (d) => {
+        if (d.type === "invisible") return "none";
         const targetId = getTargetId(d);
         const targetNode = data.nodes.find((node) => node.id === targetId);
         return targetNode && targetNode.type === "recipe"
@@ -284,6 +289,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         // Highlight connected links
         link
           .attr("stroke-opacity", (linkData) => {
+            if (linkData.type === "invisible") return 0;
             const sourceId = getSourceId(linkData);
             const targetId = getTargetId(linkData);
             return (sourceId === d.id || targetId === d.id)
@@ -291,6 +297,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
               : theme.colors.highlight.opacity.faded;
           })
           .attr("stroke-width", (linkData) => {
+            if (linkData.type === "invisible") return theme.links.width.default;
             const sourceId = getSourceId(linkData);
             const targetId = getTargetId(linkData);
             return (sourceId === d.id || targetId === d.id)
@@ -305,6 +312,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
               return theme.colors.highlight.opacity.full;
             }
             const isConnected = data.links.some((linkData) => {
+              if (linkData.type === "invisible") return false;
               const sourceId = getSourceId(linkData);
               const targetId = getTargetId(linkData);
               return (sourceId === d.id && targetId === nodeData.id) ||
@@ -321,6 +329,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
               return theme.colors.highlight.opacity.full;
             }
             const isConnected = data.links.some((linkData) => {
+              if (linkData.type === "invisible") return false;
               const sourceId = getSourceId(linkData);
               const targetId = getTargetId(linkData);
               return (sourceId === d.id && targetId === nodeData.id) ||
@@ -336,7 +345,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
         // Reset all links
         link
-          .attr("stroke-opacity", theme.links.opacity)
+          .attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity)
           .attr("stroke-width", theme.links.width.normal);
 
         // Reset all nodes

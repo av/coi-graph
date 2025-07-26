@@ -80,6 +80,31 @@ export function processRecipesData(recipes) {
     });
   });
 
+  // Add building links between recipes in the same building
+  const recipesByBuilding = new Map();
+  recipes.forEach((recipe) => {
+    if (!recipe.RecipeId || !recipe.Building) return;
+
+    const building = recipe.Building;
+    if (!recipesByBuilding.has(building)) {
+      recipesByBuilding.set(building, []);
+    }
+    recipesByBuilding.get(building).push(`recipe_${recipe.RecipeId}`);
+  });
+
+  // Create links between recipes in the same building
+  recipesByBuilding.forEach((recipeIds) => {
+    for (let i = 0; i < recipeIds.length; i++) {
+      for (let j = i + 1; j < recipeIds.length; j++) {
+        links.push({
+          source: recipeIds[i],
+          target: recipeIds[j],
+          type: "invisible",
+        });
+      }
+    }
+  });
+
   return {
     nodes: Array.from(nodes.values()),
     links: links,
@@ -95,7 +120,7 @@ export function calculateConnections(data) {
   const connectionsMap = new Map();
   data.nodes.forEach((node) => {
     const connections = data.links.filter((link) =>
-      link.source === node.id || link.target === node.id
+      (link.source === node.id || link.target === node.id) && link.type !== "invisible"
     ).length;
     connectionsMap.set(node.id, connections);
   });
@@ -149,7 +174,7 @@ export function calculateDepth(data) {
     depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
 
     const connectedLinks = data.links.filter(
-      (link) => _getSourceId(link) === nodeId,
+      (link) => _getSourceId(link) === nodeId && link.type !== "invisible",
     );
 
     connectedLinks.forEach((link) => {
@@ -160,7 +185,7 @@ export function calculateDepth(data) {
 
   const roots = data.nodes.filter((d) =>
     d.type === "material" &&
-    data.links.filter((l) => _getTargetId(l) == d.id).length === 0
+    data.links.filter((l) => _getTargetId(l) == d.id && l.type !== "invisible").length === 0
   );
 
   roots.forEach((node) => {

@@ -61186,6 +61186,26 @@ function processRecipesData(recipes) {
       });
     });
   });
+  const recipesByBuilding = /* @__PURE__ */ new Map();
+  recipes.forEach((recipe) => {
+    if (!recipe.RecipeId || !recipe.Building) return;
+    const building = recipe.Building;
+    if (!recipesByBuilding.has(building)) {
+      recipesByBuilding.set(building, []);
+    }
+    recipesByBuilding.get(building).push(`recipe_${recipe.RecipeId}`);
+  });
+  recipesByBuilding.forEach((recipeIds) => {
+    for (let i = 0; i < recipeIds.length; i++) {
+      for (let j = i + 1; j < recipeIds.length; j++) {
+        links.push({
+          source: recipeIds[i],
+          target: recipeIds[j],
+          type: "invisible"
+        });
+      }
+    }
+  });
   return {
     nodes: Array.from(nodes.values()),
     links
@@ -61196,7 +61216,7 @@ function calculateConnections(data) {
   const _getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
   const connectionsMap = /* @__PURE__ */ new Map();
   data.nodes.forEach((node) => {
-    const connections = data.links.filter((link3) => link3.source === node.id || link3.target === node.id).length;
+    const connections = data.links.filter((link3) => (link3.source === node.id || link3.target === node.id) && link3.type !== "invisible").length;
     connectionsMap.set(node.id, connections);
   });
   const inputCountMap = /* @__PURE__ */ new Map();
@@ -61233,13 +61253,13 @@ function calculateDepth(data) {
       depthMap.set(nodeId, depth);
     }
     depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
-    const connectedLinks = data.links.filter((link3) => _getSourceId(link3) === nodeId);
+    const connectedLinks = data.links.filter((link3) => _getSourceId(link3) === nodeId && link3.type !== "invisible");
     connectedLinks.forEach((link3) => {
       const connectedNodeId = _getTargetId(link3);
       walkGraph(connectedNodeId, depth + 1, nodeId);
     });
   };
-  const roots = data.nodes.filter((d) => d.type === "material" && data.links.filter((l) => _getTargetId(l) == d.id).length === 0);
+  const roots = data.nodes.filter((d) => d.type === "material" && data.links.filter((l) => _getTargetId(l) == d.id && l.type !== "invisible").length === 0);
   roots.forEach((node) => {
     if (!depthMap.has(node.id)) {
       walkGraph(node.id, 0, null);
@@ -61284,7 +61304,10 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
     const { connectionsMap } = calculateConnections(data);
     const { depthMap } = calculateDepth(data);
-    const simulation = simulation_default(data.nodes).force("link", link_default(data.links).id((d) => d.id).distance(5)).force("charge", manyBody_default().strength((d) => {
+    const simulation = simulation_default(data.nodes).force("link", link_default(data.links).id((d) => d.id).distance((d) => {
+      if (d.type === "invisible") return 40;
+      return 5;
+    })).force("charge", manyBody_default().strength((d) => {
       const parentsConnections = data.links.flatMap((link4) => {
         const sourceId = getSourceId(link4);
         const targetId = getTargetId(link4);
@@ -61308,7 +61331,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       const depth = depthMap.get(d.id) || 0;
       return depth * 20;
     }).strength(0.1)).alphaDecay(0.01);
-    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("stroke-width", theme.links.width.default).attr("stroke-opacity", theme.links.opacity).attr("marker-end", (d) => {
+    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("stroke-width", theme.links.width.default).attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("marker-end", (d) => {
+      if (d.type === "invisible") return "none";
       const targetId = getTargetId(d);
       const targetNode = data.nodes.find((node2) => node2.id === targetId);
       return targetNode && targetNode.type === "recipe" ? "url(#arrowhead-recipe)" : "url(#arrowhead-material)";
@@ -61368,10 +61392,12 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       const hoveredNode = select_default2(this.parentNode);
       hoveredNode.raise();
       link3.attr("stroke-opacity", (linkData) => {
+        if (linkData.type === "invisible") return 0;
         const sourceId = getSourceId(linkData);
         const targetId = getTargetId(linkData);
         return sourceId === d.id || targetId === d.id ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.faded;
       }).attr("stroke-width", (linkData) => {
+        if (linkData.type === "invisible") return theme.links.width.default;
         const sourceId = getSourceId(linkData);
         const targetId = getTargetId(linkData);
         return sourceId === d.id || targetId === d.id ? theme.links.width.highlighted : theme.links.width.normal;
@@ -61381,6 +61407,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
           return theme.colors.highlight.opacity.full;
         }
         const isConnected = data.links.some((linkData) => {
+          if (linkData.type === "invisible") return false;
           const sourceId = getSourceId(linkData);
           const targetId = getTargetId(linkData);
           return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
@@ -61392,6 +61419,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
           return theme.colors.highlight.opacity.full;
         }
         const isConnected = data.links.some((linkData) => {
+          if (linkData.type === "invisible") return false;
           const sourceId = getSourceId(linkData);
           const targetId = getTargetId(linkData);
           return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
@@ -61400,7 +61428,7 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
     }).on("mouseout", function(_event, _d) {
       tooltip.style("visibility", "hidden");
-      link3.attr("stroke-opacity", theme.links.opacity).attr("stroke-width", theme.links.width.normal);
+      link3.attr("stroke-opacity", (d) => d.type === "invisible" ? 0 : theme.links.opacity).attr("stroke-width", theme.links.width.normal);
       node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
       node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
     });
