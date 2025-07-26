@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "bundle": "deno bundle --platform=browser ./src/app.jsx -o ./public/app.js",
+    "bundle": "deno bundle --platform=browser --watch ./src/app.jsx -o ./public/app.js",
     "serve": "cd public; deno run -A jsr:@std/http/file-server"
   },
   "imports": {

@@ -27558,35 +27558,6 @@ var xml_default = parser("application/xml");
 var html = parser("text/html");
 var svg = parser("image/svg+xml");
 
-// ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/center.js
-function center_default(x4, y4) {
-  var nodes, strength = 1;
-  if (x4 == null) x4 = 0;
-  if (y4 == null) y4 = 0;
-  function force() {
-    var i, n = nodes.length, node, sx = 0, sy = 0;
-    for (i = 0; i < n; ++i) {
-      node = nodes[i], sx += node.x, sy += node.y;
-    }
-    for (sx = (sx / n - x4) * strength, sy = (sy / n - y4) * strength, i = 0; i < n; ++i) {
-      node = nodes[i], node.x -= sx, node.y -= sy;
-    }
-  }
-  force.initialize = function(_) {
-    nodes = _;
-  };
-  force.x = function(_) {
-    return arguments.length ? (x4 = +_, force) : x4;
-  };
-  force.y = function(_) {
-    return arguments.length ? (y4 = +_, force) : y4;
-  };
-  force.strength = function(_) {
-    return arguments.length ? (strength = +_, force) : strength;
-  };
-  return force;
-}
-
 // ../../.cache/deno/npm/registry.npmjs.org/d3-quadtree/3.0.1/src/add.js
 function add_default(d) {
   const x4 = +this._x.call(null, d), y4 = +this._y.call(null, d);
@@ -28263,6 +28234,68 @@ function manyBody_default() {
   };
   force.theta = function(_) {
     return arguments.length ? (theta2 = _ * _, force) : Math.sqrt(theta2);
+  };
+  return force;
+}
+
+// ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/x.js
+function x_default2(x4) {
+  var strength = constant_default7(0.1), nodes, strengths, xz;
+  if (typeof x4 !== "function") x4 = constant_default7(x4 == null ? 0 : +x4);
+  function force(alpha) {
+    for (var i = 0, n = nodes.length, node; i < n; ++i) {
+      node = nodes[i], node.vx += (xz[i] - node.x) * strengths[i] * alpha;
+    }
+  }
+  function initialize() {
+    if (!nodes) return;
+    var i, n = nodes.length;
+    strengths = new Array(n);
+    xz = new Array(n);
+    for (i = 0; i < n; ++i) {
+      strengths[i] = isNaN(xz[i] = +x4(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
+    }
+  }
+  force.initialize = function(_) {
+    nodes = _;
+    initialize();
+  };
+  force.strength = function(_) {
+    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : strength;
+  };
+  force.x = function(_) {
+    return arguments.length ? (x4 = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : x4;
+  };
+  return force;
+}
+
+// ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/y.js
+function y_default2(y4) {
+  var strength = constant_default7(0.1), nodes, strengths, yz;
+  if (typeof y4 !== "function") y4 = constant_default7(y4 == null ? 0 : +y4);
+  function force(alpha) {
+    for (var i = 0, n = nodes.length, node; i < n; ++i) {
+      node = nodes[i], node.vy += (yz[i] - node.y) * strengths[i] * alpha;
+    }
+  }
+  function initialize() {
+    if (!nodes) return;
+    var i, n = nodes.length;
+    strengths = new Array(n);
+    yz = new Array(n);
+    for (i = 0; i < n; ++i) {
+      strengths[i] = isNaN(yz[i] = +y4(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
+    }
+  }
+  force.initialize = function(_) {
+    nodes = _;
+    initialize();
+  };
+  force.strength = function(_) {
+    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : strength;
+  };
+  force.y = function(_) {
+    return arguments.length ? (y4 = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : y4;
   };
   return force;
 }
@@ -61131,8 +61164,8 @@ function ForceGraph({ data }) {
     if (!data || !data.nodes.length) return;
     const svg2 = select_default2(svgRef.current);
     svg2.selectAll("*").remove();
-    const width = 1200;
-    const height = 800;
+    const width = 1400;
+    const height = 900;
     svg2.attr("width", width).attr("height", height);
     const g = svg2.append("g");
     const zoom = zoom_default2().scaleExtent([
@@ -61142,17 +61175,46 @@ function ForceGraph({ data }) {
       g.attr("transform", event.transform);
     });
     svg2.call(zoom);
-    const simulation = simulation_default(data.nodes).force("link", link_default(data.links).id((d) => d.id).distance(100)).force("charge", manyBody_default().strength(-300)).force("center", center_default(width / 2, height / 2)).force("collision", collide_default().radius(30));
-    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? "#ff6b6b" : "#4ecdc4").attr("stroke-width", (d) => Math.sqrt(d.qty) + 1).attr("stroke-opacity", 0.6);
-    const node = g.append("g").selectAll("circle").data(data.nodes).join("circle").attr("r", (d) => d.type === "recipe" ? 8 : 6).attr("fill", (d) => d.type === "recipe" ? "#ff9f43" : "#3742fa").attr("stroke", "#fff").attr("stroke-width", 1.5).call(drag_default().on("start", dragstarted).on("drag", dragged).on("end", dragended));
-    const label = g.append("g").selectAll("text").data(data.nodes).join("text").text((d) => d.name).attr("font-size", 10).attr("font-family", "Arial, sans-serif").attr("text-anchor", "middle").attr("dy", "0.35em").attr("fill", "#333").style("pointer-events", "none");
+    const defs = svg2.append("defs");
+    defs.append("marker").attr("id", "arrowhead").attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#666");
+    const connectionsMap = /* @__PURE__ */ new Map();
+    data.nodes.forEach((node2) => {
+      const connections = data.links.filter((link4) => link4.source === node2.id || link4.target === node2.id).length;
+      connectionsMap.set(node2.id, connections);
+    });
+    const inputCountMap = /* @__PURE__ */ new Map();
+    data.nodes.forEach((node2) => {
+      const inputCount = data.links.filter((link4) => link4.target === node2.id && link4.type === "input").length;
+      inputCountMap.set(node2.id, inputCount);
+    });
+    const outputCountMap = /* @__PURE__ */ new Map();
+    data.nodes.forEach((node2) => {
+      const outputCount = data.links.filter((link4) => link4.source === node2.id && link4.type === "output").length;
+      outputCountMap.set(node2.id, outputCount);
+    });
+    const maxConnections = Math.max(...connectionsMap.values());
+    const maxInputCount = Math.max(...inputCountMap.values());
+    const maxOutputCount = Math.max(...outputCountMap.values());
+    const simulation = simulation_default(data.nodes).force("link", link_default(data.links).id((d) => d.id).distance((d) => {
+      const sourceConnections = connectionsMap.get(d.source.id) || 0;
+      return 5 * sourceConnections;
+    }).strength(0.5)).force("charge", manyBody_default().strength((d) => {
+      const connections = connectionsMap.get(d.id) || 0;
+      const baseStrength = d.type === "recipe" ? -800 : -400;
+      return baseStrength * (1 + connections * 0.1);
+    })).force("collision", collide_default().radius((d) => {
+      return d.type === "recipe" ? 25 : 20;
+    })).force("x", x_default2(width / 2).strength(0.1)).force("y", y_default2(height / 2).strength(0.1));
+    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? "#e74c3c" : "#2ecc71").attr("stroke-width", 2).attr("stroke-opacity", 0.7).attr("marker-end", "url(#arrowhead)");
+    const node = g.append("g").selectAll("g").data(data.nodes).join("g").call(drag_default().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+    node.append("circle").attr("r", (d) => d.type === "recipe" ? 12 : 8).attr("fill", (d) => d.type === "recipe" ? "#f39c12" : "#3498db").attr("stroke", "#fff").attr("stroke-width", 2);
+    node.append("text").text((d) => d.name).attr("font-size", (d) => d.type === "recipe" ? 10 : 9).attr("font-family", "Arial, sans-serif").attr("text-anchor", "middle").attr("dy", (d) => d.type === "recipe" ? 18 : 15).attr("fill", "#333").attr("font-weight", (d) => d.type === "recipe" ? "bold" : "normal").style("pointer-events", "none");
     node.append("title").text((d) => d.type === "recipe" ? `Recipe: ${d.name}
 Building: ${d.building}
 Time: ${d.time}s` : `Material: ${d.name}`);
     simulation.on("tick", () => {
       link3.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
-      node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-      label.attr("x", (d) => d.x).attr("y", (d) => d.y);
+      node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
     function dragstarted(event, d) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -61224,21 +61286,21 @@ function App() {
     }
   }, /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#3742fa"
+      color: "#3498db"
     }
   }, "\u25CF"), " Materials"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#ff9f43"
+      color: "#f39c12"
     }
   }, "\u25CF"), " Recipes"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#ff6b6b"
+      color: "#e74c3c"
     }
-  }, "\u2014"), " Inputs"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
+  }, "\u2192"), " Inputs"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#4ecdc4"
+      color: "#2ecc71"
     }
-  }, "\u2014"), " Outputs")), /* @__PURE__ */ import_npm_react.default.createElement("p", {
+  }, "\u2192"), " Outputs")), /* @__PURE__ */ import_npm_react.default.createElement("p", {
     style: {
       fontSize: "12px",
       color: "#666",
