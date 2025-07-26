@@ -28238,6 +28238,37 @@ function manyBody_default() {
   return force;
 }
 
+// ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/y.js
+function y_default2(y4) {
+  var strength = constant_default7(0.1), nodes, strengths, yz;
+  if (typeof y4 !== "function") y4 = constant_default7(y4 == null ? 0 : +y4);
+  function force(alpha) {
+    for (var i = 0, n = nodes.length, node; i < n; ++i) {
+      node = nodes[i], node.vy += (yz[i] - node.y) * strengths[i] * alpha;
+    }
+  }
+  function initialize() {
+    if (!nodes) return;
+    var i, n = nodes.length;
+    strengths = new Array(n);
+    yz = new Array(n);
+    for (i = 0; i < n; ++i) {
+      strengths[i] = isNaN(yz[i] = +y4(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
+    }
+  }
+  force.initialize = function(_) {
+    nodes = _;
+    initialize();
+  };
+  force.strength = function(_) {
+    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : strength;
+  };
+  force.y = function(_) {
+    return arguments.length ? (y4 = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : y4;
+  };
+  return force;
+}
+
 // ../../.cache/deno/npm/registry.npmjs.org/d3-format/3.1.0/src/formatDecimal.js
 function formatDecimal_default(x4) {
   return Math.abs(x4 = Math.round(x4)) >= 1e21 ? x4.toLocaleString("en").replace(/,/g, "") : x4.toString(10);
@@ -61183,6 +61214,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const defs = svg2.append("defs");
     defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 30).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 24).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    const getSourceId = (link4) => typeof link4.source === "object" ? link4.source.id : link4.source;
+    const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
     const connectionsMap = /* @__PURE__ */ new Map();
     data.nodes.forEach((node2) => {
       const connections = data.links.filter((link4) => link4.source === node2.id || link4.target === node2.id).length;
@@ -61201,17 +61234,63 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const _maxConnections = Math.max(...connectionsMap.values());
     const _maxInputCount = Math.max(...inputCountMap.values());
     const _maxOutputCount = Math.max(...outputCountMap.values());
-    const getSourceId = (link4) => typeof link4.source === "object" ? link4.source.id : link4.source;
-    const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
-    const simulation = simulation_default(data.nodes).force("link", link_default(data.links).id((d) => d.id).distance((d) => {
-      const connections = connectionsMap.get(d.source.id) + connectionsMap.get(d.target.id);
-      return connections * 2;
-    }).strength(0.5)).force("charge", manyBody_default().strength((d) => {
-      const connections = connectionsMap.get(d.id) || 0;
-      return connections * -200;
+    const depthMap = /* @__PURE__ */ new Map();
+    const visited = /* @__PURE__ */ new Set();
+    const walkGraph = (nodeId, depth, parentId) => {
+      const visitKey = `${parentId}->${nodeId}`;
+      if (visited.has(visitKey)) {
+        return;
+      }
+      visited.add(visitKey);
+      if (!depthMap.has(nodeId)) {
+        depthMap.set(nodeId, depth);
+      }
+      depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
+      const connectedLinks = data.links.filter((link4) => getSourceId(link4) === nodeId);
+      connectedLinks.forEach((link4) => {
+        const connectedNodeId = getTargetId(link4);
+        walkGraph(connectedNodeId, depth + 1, nodeId);
+      });
+    };
+    const roots = data.nodes.filter((d) => d.type === "material" && data.links.filter((l) => getTargetId(l) == d.id).length === 0);
+    roots.forEach((node2) => {
+      if (!depthMap.has(node2.id)) {
+        walkGraph(node2.id, 0, null);
+      }
+    });
+    const maxDepth = Math.max(...Array.from(depthMap.values()));
+    const simulation = simulation_default(data.nodes).force(
+      "link",
+      // d3.forceLink(data.links).id((d) => d.id).distance((d) => {
+      //   const connections = connectionsMap.get(d.source.id) +
+      //     connectionsMap.get(d.target.id);
+      //   return connections * 5;
+      // }).strength(0.5),
+      link_default(data.links).id((d) => d.id).distance(5)
+    ).force("charge", manyBody_default().strength((d) => {
+      const parentsConnections = data.links.flatMap((link4) => {
+        const sourceId = getSourceId(link4);
+        const targetId = getTargetId(link4);
+        if ([
+          sourceId,
+          targetId
+        ].includes(d.id)) {
+          return [
+            sourceId,
+            targetId
+          ];
+        }
+        return [];
+      }).reduce((acc, id2) => {
+        return acc + connectionsMap.get(id2) || 0;
+      }, 0);
+      return parentsConnections * -1;
     })).force("collision", collide_default().radius((d) => {
       return d.type === "recipe" ? theme.collision.recipe : theme.collision.material;
-    })).alphaDecay(0.01);
+    })).force("yLayer", y_default2().y((d) => {
+      const depth = depthMap.get(d.id) || 0;
+      return depth * 20;
+    }).strength(0.1)).alphaDecay(0.01);
     const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("stroke-width", theme.links.width.default).attr("stroke-opacity", theme.links.opacity).attr("marker-end", (d) => {
       const targetId = getTargetId(d);
       const targetNode = data.nodes.find((node2) => node2.id === targetId);

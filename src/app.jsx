@@ -2,24 +2,24 @@ import React, { useEffect, useRef, useState } from "npm:react";
 import { createRoot } from "npm:react-dom/client";
 import * as d3 from "npm:d3";
 
-import './styles.css';
+import "./styles.css";
 import recipesData from "../data/recipes.json" with { type: "json" };
 
 const theme = {
   colors: {
-    primary: 'var(--color-primary)',
-    secondary: 'var(--color-secondary)',
-    success: 'var(--color-success)',
-    danger: 'var(--color-danger)',
-    dark: 'var(--color-dark)',
-    light: 'var(--color-light)',
-    gray: 'var(--color-gray)',
-    lightGray: 'var(--color-light-gray)',
-    gold: 'var(--color-gold)',
-    border: 'var(--color-border)',
+    primary: "var(--color-primary)",
+    secondary: "var(--color-secondary)",
+    success: "var(--color-success)",
+    danger: "var(--color-danger)",
+    dark: "var(--color-dark)",
+    light: "var(--color-light)",
+    gray: "var(--color-gray)",
+    lightGray: "var(--color-light-gray)",
+    gold: "var(--color-gold)",
+    border: "var(--color-border)",
     tooltip: {
-      background: 'var(--color-tooltip-background)',
-      text: 'var(--color-tooltip-text)',
+      background: "var(--color-tooltip-background)",
+      text: "var(--color-tooltip-text)",
     },
     highlight: {
       opacity: {
@@ -31,19 +31,19 @@ const theme = {
   },
   nodes: {
     material: {
-      fill: 'var(--node-material-fill)',
+      fill: "var(--node-material-fill)",
       radius: 8,
     },
     recipe: {
-      fill: 'var(--node-recipe-fill)',
+      fill: "var(--node-recipe-fill)",
       radius: 12,
     },
-    stroke: 'var(--node-stroke)',
+    stroke: "var(--node-stroke)",
     strokeWidth: 2,
   },
   links: {
-    input: 'var(--link-input-color)',
-    output: 'var(--link-output-color)',
+    input: "var(--link-input-color)",
+    output: "var(--link-output-color)",
     opacity: 0.6,
     width: {
       normal: 1,
@@ -52,11 +52,11 @@ const theme = {
     },
   },
   text: {
-    family: 'Arial, sans-serif',
-    fill: 'var(--text-fill)',
+    family: "Arial, sans-serif",
+    fill: "var(--text-fill)",
     size: {
-      recipe: '12px',
-      material: '10px',
+      recipe: "12px",
+      material: "10px",
     },
   },
   collision: {
@@ -232,6 +232,11 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "context-stroke");
 
+    const getSourceId = (link) =>
+      typeof link.source === "object" ? link.source.id : link.source;
+    const getTargetId = (link) =>
+      typeof link.target === "object" ? link.target.id : link.target;
+
     // Pre-compute connections for performance
     const connectionsMap = new Map();
     data.nodes.forEach((node) => {
@@ -259,25 +264,73 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const _maxInputCount = Math.max(...inputCountMap.values());
     const _maxOutputCount = Math.max(...outputCountMap.values());
 
-    const getSourceId = (link) =>
-      typeof link.source === "object" ? link.source.id : link.source;
-    const getTargetId = (link) =>
-      typeof link.target === "object" ? link.target.id : link.target;
+    const depthMap = new Map();
+    const visited = new Set();
+
+    const walkGraph = (nodeId, depth, parentId) => {
+      const visitKey = `${parentId}->${nodeId}`;
+      if (visited.has(visitKey)) {
+        return;
+      }
+      visited.add(visitKey);
+
+      if (!depthMap.has(nodeId)) {
+        depthMap.set(nodeId, depth);
+      }
+
+      depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
+
+      const connectedLinks = data.links.filter(
+        (link) => getSourceId(link) === nodeId,
+      );
+
+      connectedLinks.forEach((link) => {
+        const connectedNodeId = getTargetId(link);
+        walkGraph(connectedNodeId, depth + 1, nodeId);
+      });
+    };
+
+    const roots = data.nodes.filter((d) =>
+      d.type === "material" &&
+      data.links.filter((l) => getTargetId(l) == d.id).length === 0
+    );
+
+    roots.forEach((node) => {
+      if (!depthMap.has(node.id)) {
+        walkGraph(node.id, 0, null);
+      }
+    });
+    const maxDepth = Math.max(...Array.from(depthMap.values()));
 
     const simulation = d3.forceSimulation(data.nodes)
       .force(
         "link",
-        d3.forceLink(data.links).id((d) => d.id).distance((d) => {
-          const connections = connectionsMap.get(d.source.id) +
-            connectionsMap.get(d.target.id);
-          return connections * 2;
-        }).strength(0.5),
+        // d3.forceLink(data.links).id((d) => d.id).distance((d) => {
+        //   const connections = connectionsMap.get(d.source.id) +
+        //     connectionsMap.get(d.target.id);
+        //   return connections * 5;
+        // }).strength(0.5),
+        d3.forceLink(data.links).id((d) => d.id).distance(5)
       )
       .force(
         "charge",
         d3.forceManyBody().strength((d) => {
-          const connections = connectionsMap.get(d.id) || 0;
-          return connections * -200;
+          const parentsConnections = data.links.flatMap(
+            (link) => {
+              const sourceId = getSourceId(link);
+              const targetId = getTargetId(link);
+
+              if ([sourceId, targetId].includes(d.id)) {
+                return [sourceId, targetId];
+              }
+
+              return [];
+            },
+          ).reduce((acc, id) => {
+            return acc + connectionsMap.get(id) || 0;
+          }, 0);
+
+          return parentsConnections * -1;
         }),
       )
       .force(
@@ -288,6 +341,20 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
             : theme.collision.material;
         }),
       )
+      .force(
+        "yLayer",
+        d3.forceY().y((d) => {
+          const depth = depthMap.get(d.id) || 0;
+          return depth * 20;
+        }).strength(0.1),
+      )
+      // .force(
+      //   "xLayer",
+      //   d3.forceX().x((d) => {
+      //     const connections = connectionsMap.get(d.id) || 0;
+      //     return connections * 100;
+      //   }).strength(0.01),
+      // )
       .alphaDecay(0.01);
 
     const link = g.append("g")
@@ -808,7 +875,7 @@ function App() {
       </div>
 
       {/* Legend overlay */}
-      <div className={`legend-overlay ${selectedNode ? 'with-panel' : ''}`}>
+      <div className={`legend-overlay ${selectedNode ? "with-panel" : ""}`}>
         <div className="legend-title">
           Legend:
         </div>
