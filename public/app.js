@@ -28238,68 +28238,6 @@ function manyBody_default() {
   return force;
 }
 
-// ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/x.js
-function x_default2(x4) {
-  var strength = constant_default7(0.1), nodes, strengths, xz;
-  if (typeof x4 !== "function") x4 = constant_default7(x4 == null ? 0 : +x4);
-  function force(alpha) {
-    for (var i = 0, n = nodes.length, node; i < n; ++i) {
-      node = nodes[i], node.vx += (xz[i] - node.x) * strengths[i] * alpha;
-    }
-  }
-  function initialize() {
-    if (!nodes) return;
-    var i, n = nodes.length;
-    strengths = new Array(n);
-    xz = new Array(n);
-    for (i = 0; i < n; ++i) {
-      strengths[i] = isNaN(xz[i] = +x4(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
-    }
-  }
-  force.initialize = function(_) {
-    nodes = _;
-    initialize();
-  };
-  force.strength = function(_) {
-    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : strength;
-  };
-  force.x = function(_) {
-    return arguments.length ? (x4 = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : x4;
-  };
-  return force;
-}
-
-// ../../.cache/deno/npm/registry.npmjs.org/d3-force/3.0.0/src/y.js
-function y_default2(y4) {
-  var strength = constant_default7(0.1), nodes, strengths, yz;
-  if (typeof y4 !== "function") y4 = constant_default7(y4 == null ? 0 : +y4);
-  function force(alpha) {
-    for (var i = 0, n = nodes.length, node; i < n; ++i) {
-      node = nodes[i], node.vy += (yz[i] - node.y) * strengths[i] * alpha;
-    }
-  }
-  function initialize() {
-    if (!nodes) return;
-    var i, n = nodes.length;
-    strengths = new Array(n);
-    yz = new Array(n);
-    for (i = 0; i < n; ++i) {
-      strengths[i] = isNaN(yz[i] = +y4(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
-    }
-  }
-  force.initialize = function(_) {
-    nodes = _;
-    initialize();
-  };
-  force.strength = function(_) {
-    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : strength;
-  };
-  force.y = function(_) {
-    return arguments.length ? (y4 = typeof _ === "function" ? _ : constant_default7(+_), initialize(), force) : y4;
-  };
-  return force;
-}
-
 // ../../.cache/deno/npm/registry.npmjs.org/d3-format/3.1.0/src/formatDecimal.js
 function formatDecimal_default(x4) {
   return Math.abs(x4 = Math.round(x4)) >= 1e21 ? x4.toLocaleString("en").replace(/,/g, "") : x4.toString(10);
@@ -61081,6 +61019,67 @@ var recipes_default = [
 ];
 
 // src/app.jsx
+var inputColor = "indigo";
+var outputColor = "orange";
+var theme = {
+  colors: {
+    primary: inputColor,
+    secondary: outputColor,
+    success: "#2ecc71",
+    danger: "#e74c3c",
+    dark: "#333",
+    light: "#fff",
+    gray: "#666",
+    lightGray: "#888",
+    gold: "#ffd700",
+    border: "#ccc",
+    tooltip: {
+      background: "rgba(0, 0, 0, 0.9)",
+      text: "#fff"
+    },
+    highlight: {
+      opacity: {
+        full: 1,
+        dimmed: 0.3,
+        faded: 0.2
+      }
+    }
+  },
+  nodes: {
+    material: {
+      fill: inputColor,
+      radius: 8
+    },
+    recipe: {
+      fill: outputColor,
+      radius: 12
+    },
+    stroke: "#fff",
+    strokeWidth: 2
+  },
+  links: {
+    input: inputColor,
+    output: outputColor,
+    opacity: 0.7,
+    width: {
+      normal: 1,
+      highlighted: 1,
+      default: 1
+    }
+  },
+  text: {
+    family: "Arial, sans-serif",
+    fill: "#333",
+    size: {
+      recipe: 10,
+      material: 9
+    }
+  },
+  collision: {
+    recipe: 25,
+    material: 20
+  }
+};
 function processRecipesData(recipes) {
   const nodes = /* @__PURE__ */ new Map();
   const links = [];
@@ -61158,7 +61157,7 @@ function processRecipesData(recipes) {
     links
   };
 }
-function ForceGraph({ data }) {
+function ForceGraph({ data, selectedNode, onNodeSelect }) {
   const svgRef = (0, import_npm_react.useRef)();
   (0, import_npm_react.useEffect)(() => {
     if (!data || !data.nodes.length) return;
@@ -61175,8 +61174,16 @@ function ForceGraph({ data }) {
       g.attr("transform", event.transform);
     });
     svg2.call(zoom);
+    const zoomToNode = (nodeData) => {
+      const scale2 = 2;
+      const x4 = -nodeData.x * scale2 + width / 2;
+      const y4 = -nodeData.y * scale2 + height / 2;
+      svg2.transition().duration(750).call(zoom.transform, identity5.translate(x4, y4).scale(scale2));
+    };
+    const tooltip = select_default2("body").append("div").attr("class", "tooltip").style("position", "absolute").style("visibility", "hidden").style("background", theme.colors.tooltip.background).style("color", theme.colors.tooltip.text).style("padding", "12px").style("border-radius", "6px").style("font-size", "12px").style("font-family", theme.text.family).style("max-width", "300px").style("box-shadow", "0 4px 8px rgba(0, 0, 0, 0.3)").style("z-index", "1000").style("pointer-events", "none");
     const defs = svg2.append("defs");
-    defs.append("marker").attr("id", "arrowhead").attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#666");
+    defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 30).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
+    defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 24).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     const connectionsMap = /* @__PURE__ */ new Map();
     data.nodes.forEach((node2) => {
       const connections = data.links.filter((link4) => link4.source === node2.id || link4.target === node2.id).length;
@@ -61192,26 +61199,111 @@ function ForceGraph({ data }) {
       const outputCount = data.links.filter((link4) => link4.source === node2.id && link4.type === "output").length;
       outputCountMap.set(node2.id, outputCount);
     });
-    const maxConnections = Math.max(...connectionsMap.values());
-    const maxInputCount = Math.max(...inputCountMap.values());
-    const maxOutputCount = Math.max(...outputCountMap.values());
+    const _maxConnections = Math.max(...connectionsMap.values());
+    const _maxInputCount = Math.max(...inputCountMap.values());
+    const _maxOutputCount = Math.max(...outputCountMap.values());
+    const getSourceId = (link4) => typeof link4.source === "object" ? link4.source.id : link4.source;
+    const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
     const simulation = simulation_default(data.nodes).force("link", link_default(data.links).id((d) => d.id).distance((d) => {
-      const sourceConnections = connectionsMap.get(d.source.id) || 0;
-      return 5 * sourceConnections;
+      const connections = connectionsMap.get(d.source.id) + connectionsMap.get(d.target.id);
+      return connections * 2;
     }).strength(0.5)).force("charge", manyBody_default().strength((d) => {
       const connections = connectionsMap.get(d.id) || 0;
-      const baseStrength = d.type === "recipe" ? -800 : -400;
-      return baseStrength * (1 + connections * 0.1);
+      return connections * -200;
     })).force("collision", collide_default().radius((d) => {
-      return d.type === "recipe" ? 25 : 20;
-    })).force("x", x_default2(width / 2).strength(0.1)).force("y", y_default2(height / 2).strength(0.1));
-    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? "#e74c3c" : "#2ecc71").attr("stroke-width", 2).attr("stroke-opacity", 0.7).attr("marker-end", "url(#arrowhead)");
+      return d.type === "recipe" ? theme.collision.recipe : theme.collision.material;
+    })).alphaDecay(0.01);
+    const link3 = g.append("g").selectAll("line").data(data.links).join("line").attr("stroke", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("fill", (d) => d.type === "input" ? theme.links.input : theme.links.output).attr("stroke-width", theme.links.width.default).attr("stroke-opacity", theme.links.opacity).attr("marker-end", (d) => {
+      const targetId = getTargetId(d);
+      const targetNode = data.nodes.find((node2) => node2.id === targetId);
+      return targetNode && targetNode.type === "recipe" ? "url(#arrowhead-recipe)" : "url(#arrowhead-material)";
+    }).attr("marker-end-fill", "#600");
     const node = g.append("g").selectAll("g").data(data.nodes).join("g").call(drag_default().on("start", dragstarted).on("drag", dragged).on("end", dragended));
-    node.append("circle").attr("r", (d) => d.type === "recipe" ? 12 : 8).attr("fill", (d) => d.type === "recipe" ? "#f39c12" : "#3498db").attr("stroke", "#fff").attr("stroke-width", 2);
-    node.append("text").text((d) => d.name).attr("font-size", (d) => d.type === "recipe" ? 10 : 9).attr("font-family", "Arial, sans-serif").attr("text-anchor", "middle").attr("dy", (d) => d.type === "recipe" ? 18 : 15).attr("fill", "#333").attr("font-weight", (d) => d.type === "recipe" ? "bold" : "normal").style("pointer-events", "none");
-    node.append("title").text((d) => d.type === "recipe" ? `Recipe: ${d.name}
-Building: ${d.building}
-Time: ${d.time}s` : `Material: ${d.name}`);
+    node.append("circle").attr("r", (d) => d.type === "recipe" ? theme.nodes.recipe.radius : theme.nodes.material.radius).attr("fill", (d) => d.type === "recipe" ? theme.nodes.recipe.fill : theme.nodes.material.fill).attr("stroke", theme.nodes.stroke).attr("stroke-width", theme.nodes.strokeWidth).on("click", function(event, d) {
+      event.stopPropagation();
+      onNodeSelect(d);
+      zoomToNode(d);
+    }).on("mouseover", function(event, d) {
+      const nodeData = d;
+      let tooltipContent = "";
+      if (nodeData.type === "recipe") {
+        const inputs = data.links.filter((link4) => {
+          const targetId = getTargetId(link4);
+          return targetId === nodeData.id && link4.type === "input";
+        }).map((link4) => {
+          const sourceId = getSourceId(link4);
+          return `<div style="margin: 2px 0;">${sourceId} <span style="color: ${theme.colors.gold};">(${link4.qty})</span></div>`;
+        }).join("");
+        const outputs = data.links.filter((link4) => {
+          const sourceId = getSourceId(link4);
+          return sourceId === nodeData.id && link4.type === "output";
+        }).map((link4) => {
+          const targetId = getTargetId(link4);
+          return `<div style="margin: 2px 0;">${targetId} <span style="color: ${theme.colors.gold};">(${link4.qty})</span></div>`;
+        }).join("");
+        tooltipContent = `
+            <div style="font-weight: bold; color: ${theme.nodes.recipe.fill}; margin-bottom: 8px;">\u{1F4CB} Recipe: ${nodeData.name}</div>
+            <div style="margin-bottom: 4px;"><strong>Building:</strong> ${nodeData.building}</div>
+            <div style="margin-bottom: 8px;"><strong>Time:</strong> ${nodeData.time}s</div>
+            ${inputs ? `<div style="margin-bottom: 4px;"><strong style="color: ${theme.links.input};">Inputs:</strong></div>${inputs}` : ""}
+            ${outputs ? `<div style="margin-top: 8px; margin-bottom: 4px;"><strong style="color: ${theme.links.output};">Outputs:</strong></div>${outputs}` : ""}
+          `;
+      } else {
+        const usedInRecipes = data.links.filter((link4) => {
+          const sourceId = getSourceId(link4);
+          return sourceId === nodeData.id && link4.type === "input";
+        }).map((link4) => {
+          const targetId = getTargetId(link4);
+          return `<div style="margin: 2px 0;">${targetId.replace("recipe_", "")}</div>`;
+        }).join("");
+        const producedByRecipes = data.links.filter((link4) => {
+          const targetId = getTargetId(link4);
+          return targetId === nodeData.id && link4.type === "output";
+        }).map((link4) => {
+          const sourceId = getSourceId(link4);
+          return `<div style="margin: 2px 0;">${sourceId.replace("recipe_", "")}</div>`;
+        }).join("");
+        tooltipContent = `
+            <div style="font-weight: bold; color: ${theme.nodes.material.fill}; margin-bottom: 8px;">\u{1F4E6} Material: ${nodeData.name}</div>
+            ${usedInRecipes ? `<div style="margin-bottom: 4px;"><strong style="color: ${theme.links.input};">Used in recipes:</strong></div>${usedInRecipes}` : `<div style="color: ${theme.colors.lightGray};">Not used in any recipes</div>`}
+            ${producedByRecipes ? `<div style="margin-top: 8px; margin-bottom: 4px;"><strong style="color: ${theme.links.output};">Produced by recipes:</strong></div>${producedByRecipes}` : `<div style="color: ${theme.colors.lightGray}; margin-top: 4px;">Not produced by any recipes</div>`}
+          `;
+      }
+      tooltip.style("visibility", "visible").html(tooltipContent).style("left", event.pageX + 20 + "px").style("top", event.pageY - 20 + "px");
+      link3.attr("stroke-opacity", (linkData) => {
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === d.id || targetId === d.id ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.faded;
+      }).attr("stroke-width", (linkData) => {
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === d.id || targetId === d.id ? theme.links.width.highlighted : theme.links.width.normal;
+      });
+      node.select("circle").attr("opacity", (nodeData2) => {
+        if (nodeData2.id === d.id) return theme.colors.highlight.opacity.full;
+        const isConnected = data.links.some((linkData) => {
+          const sourceId = getSourceId(linkData);
+          const targetId = getTargetId(linkData);
+          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
+        });
+        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+      });
+      node.select("text").attr("opacity", (nodeData2) => {
+        if (nodeData2.id === d.id) return theme.colors.highlight.opacity.full;
+        const isConnected = data.links.some((linkData) => {
+          const sourceId = getSourceId(linkData);
+          const targetId = getTargetId(linkData);
+          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
+        });
+        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+      });
+    }).on("mouseout", function(_event, _d) {
+      tooltip.style("visibility", "hidden");
+      link3.attr("stroke-opacity", theme.links.opacity).attr("stroke-width", theme.links.width.normal);
+      node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
+      node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
+    });
+    node.append("text").text((d) => d.name).attr("font-size", (d) => d.type === "recipe" ? theme.text.size.recipe : theme.text.size.material).attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", (d) => d.type === "recipe" ? 18 : 15).attr("fill", theme.text.fill).attr("font-weight", (d) => d.type === "recipe" ? "bold" : "normal").style("pointer-events", "none");
     simulation.on("tick", () => {
       link3.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
       node.attr("transform", (d) => `translate(${d.x},${d.y})`);
@@ -61232,17 +61324,244 @@ Time: ${d.time}s` : `Material: ${d.name}`);
     }
     return () => {
       simulation.stop();
+      tooltip.remove();
     };
   }, [
+    data
+  ]);
+  (0, import_npm_react.useEffect)(() => {
+    if (selectedNode && data) {
+      const nodeData = data.nodes.find((n) => n.id === selectedNode.id);
+      if (nodeData && nodeData.x !== void 0 && nodeData.y !== void 0) {
+        const svg2 = select_default2(svgRef.current);
+        const width = 1400;
+        const height = 900;
+        const scale2 = 2;
+        const x4 = -nodeData.x * scale2 + width / 2;
+        const y4 = -nodeData.y * scale2 + height / 2;
+        const zoom = zoom_default2().scaleExtent([
+          0.1,
+          4
+        ]).on("zoom", (event) => {
+          svg2.select("g").attr("transform", event.transform);
+        });
+        svg2.transition().duration(750).call(zoom.transform, identity5.translate(x4, y4).scale(scale2));
+      }
+    }
+  }, [
+    selectedNode,
     data
   ]);
   return /* @__PURE__ */ import_npm_react.default.createElement("svg", {
     ref: svgRef
   });
 }
+function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
+  if (!node) return null;
+  const getSourceId = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
+  const getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
+  const renderNodeLink = (nodeName, isRecipe = false) => {
+    const displayName = isRecipe ? nodeName.replace("recipe_", "") : nodeName;
+    return /* @__PURE__ */ import_npm_react.default.createElement("span", {
+      style: {
+        color: theme.colors.primary,
+        cursor: "pointer",
+        textDecoration: "underline",
+        margin: "2px 0",
+        display: "inline-block"
+      },
+      onClick: () => onNodeLinkClick(nodeName)
+    }, displayName);
+  };
+  let content;
+  if (node.type === "recipe") {
+    const inputs = data.links.filter((link3) => {
+      const targetId = getTargetId(link3);
+      return targetId === node.id && link3.type === "input";
+    }).map((link3) => {
+      const sourceId = getSourceId(link3);
+      return /* @__PURE__ */ import_npm_react.default.createElement("div", {
+        key: sourceId,
+        style: {
+          margin: "4px 0"
+        }
+      }, renderNodeLink(sourceId), " ", /* @__PURE__ */ import_npm_react.default.createElement("span", {
+        style: {
+          color: theme.colors.gold
+        }
+      }, "(", link3.qty, ")"));
+    });
+    const outputs = data.links.filter((link3) => {
+      const sourceId = getSourceId(link3);
+      return sourceId === node.id && link3.type === "output";
+    }).map((link3) => {
+      const targetId = getTargetId(link3);
+      return /* @__PURE__ */ import_npm_react.default.createElement("div", {
+        key: targetId,
+        style: {
+          margin: "4px 0"
+        }
+      }, renderNodeLink(targetId), " ", /* @__PURE__ */ import_npm_react.default.createElement("span", {
+        style: {
+          color: theme.colors.gold
+        }
+      }, "(", link3.qty, ")"));
+    });
+    content = /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        fontSize: "18px",
+        fontWeight: "bold",
+        color: theme.nodes.recipe.fill,
+        marginBottom: "16px"
+      }
+    }, "\u{1F4CB} Recipe: ", node.name), /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        marginBottom: "12px"
+      }
+    }, /* @__PURE__ */ import_npm_react.default.createElement("strong", null, "Building:"), " ", node.building), /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        marginBottom: "16px"
+      }
+    }, /* @__PURE__ */ import_npm_react.default.createElement("strong", null, "Time:"), " ", node.time, "s"), inputs.length > 0 && /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        marginBottom: "16px"
+      }
+    }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        fontWeight: "bold",
+        color: theme.links.input,
+        marginBottom: "8px"
+      }
+    }, "Inputs:"), inputs), outputs.length > 0 && /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        fontWeight: "bold",
+        color: theme.links.output,
+        marginBottom: "8px"
+      }
+    }, "Outputs:"), outputs));
+  } else {
+    const usedInRecipes = data.links.filter((link3) => {
+      const sourceId = getSourceId(link3);
+      return sourceId === node.id && link3.type === "input";
+    }).map((link3) => {
+      const targetId = getTargetId(link3);
+      return /* @__PURE__ */ import_npm_react.default.createElement("div", {
+        key: targetId,
+        style: {
+          margin: "4px 0"
+        }
+      }, renderNodeLink(targetId, true));
+    });
+    const producedByRecipes = data.links.filter((link3) => {
+      const targetId = getTargetId(link3);
+      return targetId === node.id && link3.type === "output";
+    }).map((link3) => {
+      const sourceId = getSourceId(link3);
+      return /* @__PURE__ */ import_npm_react.default.createElement("div", {
+        key: sourceId,
+        style: {
+          margin: "4px 0"
+        }
+      }, renderNodeLink(sourceId, true));
+    });
+    content = /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        fontSize: "18px",
+        fontWeight: "bold",
+        color: theme.nodes.material.fill,
+        marginBottom: "16px"
+      }
+    }, "\u{1F4E6} Material: ", node.name), usedInRecipes.length > 0 ? /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        marginBottom: "16px"
+      }
+    }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        fontWeight: "bold",
+        color: theme.links.input,
+        marginBottom: "8px"
+      }
+    }, "Used in recipes:"), usedInRecipes) : /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        color: theme.colors.lightGray,
+        marginBottom: "16px"
+      }
+    }, "Not used in any recipes"), producedByRecipes.length > 0 ? /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        fontWeight: "bold",
+        color: theme.links.output,
+        marginBottom: "8px"
+      }
+    }, "Produced by recipes:"), producedByRecipes) : /* @__PURE__ */ import_npm_react.default.createElement("div", {
+      style: {
+        color: theme.colors.lightGray
+      }
+    }, "Not produced by any recipes"));
+  }
+  return /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    style: {
+      position: "fixed",
+      top: 0,
+      right: 0,
+      width: "350px",
+      height: "100vh",
+      backgroundColor: theme.colors.light,
+      border: `1px solid ${theme.colors.border}`,
+      borderRight: "none",
+      boxShadow: "-2px 0 8px rgba(0, 0, 0, 0.1)",
+      padding: "20px",
+      overflowY: "auto",
+      zIndex: 1e3,
+      fontFamily: theme.text.family
+    }
+  }, /* @__PURE__ */ import_npm_react.default.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "20px",
+      borderBottom: `1px solid ${theme.colors.border}`,
+      paddingBottom: "10px"
+    }
+  }, /* @__PURE__ */ import_npm_react.default.createElement("h3", {
+    style: {
+      margin: 0,
+      color: theme.colors.dark
+    }
+  }, "Node Details"), /* @__PURE__ */ import_npm_react.default.createElement("button", {
+    type: "button",
+    onClick: onClose,
+    style: {
+      background: "none",
+      border: "none",
+      fontSize: "20px",
+      cursor: "pointer",
+      color: theme.colors.gray,
+      padding: "0",
+      width: "24px",
+      height: "24px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, "\xD7")), content);
+}
 function App() {
   const [data, setData] = (0, import_npm_react.useState)(null);
   const [loading, setLoading] = (0, import_npm_react.useState)(true);
+  const [selectedNode, setSelectedNode] = (0, import_npm_react.useState)(null);
+  const handleNodeSelect = (node) => {
+    setSelectedNode(node);
+  };
+  const handleClosePanel = () => {
+    setSelectedNode(null);
+  };
+  const handleNodeLinkClick = (nodeName) => {
+    const node = data?.nodes.find((n) => n.id === nodeName || n.name === nodeName);
+    if (node) {
+      setSelectedNode(node);
+    }
+  };
   (0, import_npm_react.useEffect)(() => {
     try {
       const processedData = processRecipesData(recipes_default);
@@ -61266,13 +61585,14 @@ function App() {
       style: {
         padding: "20px",
         textAlign: "center",
-        color: "red"
+        color: theme.colors.danger
       }
     }, /* @__PURE__ */ import_npm_react.default.createElement("h2", null, "Error processing data"));
   }
   return /* @__PURE__ */ import_npm_react.default.createElement("div", {
     style: {
-      padding: "20px"
+      padding: "20px",
+      paddingRight: selectedNode ? "370px" : "20px"
     }
   }, /* @__PURE__ */ import_npm_react.default.createElement("h1", null, "COI Recipe Graph"), /* @__PURE__ */ import_npm_react.default.createElement("div", {
     style: {
@@ -61286,41 +61606,48 @@ function App() {
     }
   }, /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#3498db"
+      color: theme.nodes.material.fill
     }
   }, "\u25CF"), " Materials"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#f39c12"
+      color: theme.nodes.recipe.fill
     }
   }, "\u25CF"), " Recipes"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#e74c3c"
+      color: theme.links.input
     }
   }, "\u2192"), " Inputs"), /* @__PURE__ */ import_npm_react.default.createElement("div", null, /* @__PURE__ */ import_npm_react.default.createElement("span", {
     style: {
-      color: "#2ecc71"
+      color: theme.links.output
     }
   }, "\u2192"), " Outputs")), /* @__PURE__ */ import_npm_react.default.createElement("p", {
     style: {
       fontSize: "12px",
-      color: "#666",
+      color: theme.colors.gray,
       marginTop: "10px"
     }
-  }, "Drag nodes to move them. Scroll to zoom. Hover over nodes for details.")), /* @__PURE__ */ import_npm_react.default.createElement("div", {
+  }, "Drag nodes to move them. Scroll to zoom. Hover over nodes for details. Click nodes to open detail panel.")), /* @__PURE__ */ import_npm_react.default.createElement("div", {
     style: {
-      border: "1px solid #ccc",
+      border: `1px solid ${theme.colors.border}`,
       borderRadius: "4px",
       overflow: "hidden"
     }
   }, /* @__PURE__ */ import_npm_react.default.createElement(ForceGraph, {
-    data
+    data,
+    selectedNode,
+    onNodeSelect: handleNodeSelect
   })), /* @__PURE__ */ import_npm_react.default.createElement("div", {
     style: {
       marginTop: "20px",
       fontSize: "14px",
-      color: "#666"
+      color: theme.colors.gray
     }
-  }, /* @__PURE__ */ import_npm_react.default.createElement("p", null, "Nodes: ", data?.nodes.length, " | Links: ", data?.links.length)));
+  }, /* @__PURE__ */ import_npm_react.default.createElement("p", null, "Nodes: ", data?.nodes.length, " | Links: ", data?.links.length)), /* @__PURE__ */ import_npm_react.default.createElement(DetailPanel, {
+    node: selectedNode,
+    data,
+    onClose: handleClosePanel,
+    onNodeLinkClick: handleNodeLinkClick
+  }));
 }
 var root2 = (0, import_client.createRoot)(document.getElementById("root"));
 root2.render(/* @__PURE__ */ import_npm_react.default.createElement(App, null));
