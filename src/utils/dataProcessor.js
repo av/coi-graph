@@ -85,3 +85,92 @@ export function processRecipesData(recipes) {
     links: links,
   };
 }
+
+export function calculateConnections(data) {
+  const _getSourceId = (link) =>
+    typeof link.source === "object" ? link.source.id : link.source;
+  const _getTargetId = (link) =>
+    typeof link.target === "object" ? link.target.id : link.target;
+
+  const connectionsMap = new Map();
+  data.nodes.forEach((node) => {
+    const connections = data.links.filter((link) =>
+      link.source === node.id || link.target === node.id
+    ).length;
+    connectionsMap.set(node.id, connections);
+  });
+
+  const inputCountMap = new Map();
+  data.nodes.forEach((node) => {
+    const inputCount = data.links.filter(
+      (link) => link.target === node.id && link.type === "input",
+    ).length;
+    inputCountMap.set(node.id, inputCount);
+  });
+
+  const outputCountMap = new Map();
+  data.nodes.forEach((node) => {
+    const outputCount = data.links.filter(
+      (link) => link.source === node.id && link.type === "output",
+    ).length;
+    outputCountMap.set(node.id, outputCount);
+  });
+
+  return {
+    connectionsMap,
+    inputCountMap,
+    outputCountMap,
+    maxConnections: Math.max(...connectionsMap.values()),
+    maxInputCount: Math.max(...inputCountMap.values()),
+    maxOutputCount: Math.max(...outputCountMap.values()),
+  };
+}
+
+export function calculateDepth(data) {
+  const _getSourceId = (link) =>
+    typeof link.source === "object" ? link.source.id : link.source;
+  const _getTargetId = (link) =>
+    typeof link.target === "object" ? link.target.id : link.target;
+
+  const depthMap = new Map();
+  const visited = new Set();
+
+  const walkGraph = (nodeId, depth, parentId) => {
+    const visitKey = `${parentId}->${nodeId}`;
+    if (visited.has(visitKey)) {
+      return;
+    }
+    visited.add(visitKey);
+
+    if (!depthMap.has(nodeId)) {
+      depthMap.set(nodeId, depth);
+    }
+
+    depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
+
+    const connectedLinks = data.links.filter(
+      (link) => _getSourceId(link) === nodeId,
+    );
+
+    connectedLinks.forEach((link) => {
+      const connectedNodeId = _getTargetId(link);
+      walkGraph(connectedNodeId, depth + 1, nodeId);
+    });
+  };
+
+  const roots = data.nodes.filter((d) =>
+    d.type === "material" &&
+    data.links.filter((l) => _getTargetId(l) == d.id).length === 0
+  );
+
+  roots.forEach((node) => {
+    if (!depthMap.has(node.id)) {
+      walkGraph(node.id, 0, null);
+    }
+  });
+
+  return {
+    depthMap,
+    maxDepth: Math.max(...Array.from(depthMap.values())),
+  };
+}

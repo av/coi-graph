@@ -61113,6 +61113,144 @@ var theme = {
   }
 };
 
+// src/utils/dataProcessor.js
+function processRecipesData(recipes) {
+  const nodes = /* @__PURE__ */ new Map();
+  const links = [];
+  recipes.forEach((recipe) => {
+    if (!recipe.RecipeId) return;
+    const inputs = [];
+    const outputs = [];
+    for (let i = 1; i <= 6; i++) {
+      const inputName = recipe[`Input${i}Name`];
+      const inputQty = parseInt(recipe[`Input${i}Qty`]) || 0;
+      const outputName = recipe[`Output${i}Name`];
+      const outputQty = parseInt(recipe[`Output${i}Qty`]) || 0;
+      if (inputName && inputQty > 0) {
+        inputs.push({
+          name: inputName,
+          qty: inputQty,
+          icon: recipe[`Input${i}Icon`]
+        });
+      }
+      if (outputName && outputQty > 0) {
+        outputs.push({
+          name: outputName,
+          qty: outputQty,
+          icon: recipe[`Output${i}Icon`]
+        });
+      }
+    }
+    inputs.forEach((input) => {
+      if (!nodes.has(input.name)) {
+        nodes.set(input.name, {
+          id: input.name,
+          name: input.name,
+          icon: input.icon,
+          type: "material"
+        });
+      }
+    });
+    outputs.forEach((output) => {
+      if (!nodes.has(output.name)) {
+        nodes.set(output.name, {
+          id: output.name,
+          name: output.name,
+          icon: output.icon,
+          type: "material"
+        });
+      }
+    });
+    const recipeNodeId = `recipe_${recipe.RecipeId}`;
+    nodes.set(recipeNodeId, {
+      id: recipeNodeId,
+      name: recipe.RecipeId,
+      building: recipe.Building,
+      type: "recipe",
+      time: recipe.Time
+    });
+    inputs.forEach((input) => {
+      links.push({
+        source: input.name,
+        target: recipeNodeId,
+        type: "input",
+        qty: input.qty
+      });
+    });
+    outputs.forEach((output) => {
+      links.push({
+        source: recipeNodeId,
+        target: output.name,
+        type: "output",
+        qty: output.qty
+      });
+    });
+  });
+  return {
+    nodes: Array.from(nodes.values()),
+    links
+  };
+}
+function calculateConnections(data) {
+  const _getSourceId = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
+  const _getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
+  const connectionsMap = /* @__PURE__ */ new Map();
+  data.nodes.forEach((node) => {
+    const connections = data.links.filter((link3) => link3.source === node.id || link3.target === node.id).length;
+    connectionsMap.set(node.id, connections);
+  });
+  const inputCountMap = /* @__PURE__ */ new Map();
+  data.nodes.forEach((node) => {
+    const inputCount = data.links.filter((link3) => link3.target === node.id && link3.type === "input").length;
+    inputCountMap.set(node.id, inputCount);
+  });
+  const outputCountMap = /* @__PURE__ */ new Map();
+  data.nodes.forEach((node) => {
+    const outputCount = data.links.filter((link3) => link3.source === node.id && link3.type === "output").length;
+    outputCountMap.set(node.id, outputCount);
+  });
+  return {
+    connectionsMap,
+    inputCountMap,
+    outputCountMap,
+    maxConnections: Math.max(...connectionsMap.values()),
+    maxInputCount: Math.max(...inputCountMap.values()),
+    maxOutputCount: Math.max(...outputCountMap.values())
+  };
+}
+function calculateDepth(data) {
+  const _getSourceId = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
+  const _getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
+  const depthMap = /* @__PURE__ */ new Map();
+  const visited = /* @__PURE__ */ new Set();
+  const walkGraph = (nodeId, depth, parentId) => {
+    const visitKey = `${parentId}->${nodeId}`;
+    if (visited.has(visitKey)) {
+      return;
+    }
+    visited.add(visitKey);
+    if (!depthMap.has(nodeId)) {
+      depthMap.set(nodeId, depth);
+    }
+    depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
+    const connectedLinks = data.links.filter((link3) => _getSourceId(link3) === nodeId);
+    connectedLinks.forEach((link3) => {
+      const connectedNodeId = _getTargetId(link3);
+      walkGraph(connectedNodeId, depth + 1, nodeId);
+    });
+  };
+  const roots = data.nodes.filter((d) => d.type === "material" && data.links.filter((l) => _getTargetId(l) == d.id).length === 0);
+  roots.forEach((node) => {
+    if (!depthMap.has(node.id)) {
+      walkGraph(node.id, 0, null);
+    }
+  });
+  return {
+    depthMap,
+    maxDepth: Math.max(...Array.from(depthMap.values()))
+  };
+}
+
 // src/components/ForceGraph.jsx
 function ForceGraph({ data, selectedNode, onNodeSelect }) {
   const svgRef = (0, import_npm_react.useRef)();
@@ -61144,49 +61282,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 24).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     const getSourceId = (link4) => typeof link4.source === "object" ? link4.source.id : link4.source;
     const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
-    const connectionsMap = /* @__PURE__ */ new Map();
-    data.nodes.forEach((node2) => {
-      const connections = data.links.filter((link4) => link4.source === node2.id || link4.target === node2.id).length;
-      connectionsMap.set(node2.id, connections);
-    });
-    const inputCountMap = /* @__PURE__ */ new Map();
-    data.nodes.forEach((node2) => {
-      const inputCount = data.links.filter((link4) => link4.target === node2.id && link4.type === "input").length;
-      inputCountMap.set(node2.id, inputCount);
-    });
-    const outputCountMap = /* @__PURE__ */ new Map();
-    data.nodes.forEach((node2) => {
-      const outputCount = data.links.filter((link4) => link4.source === node2.id && link4.type === "output").length;
-      outputCountMap.set(node2.id, outputCount);
-    });
-    const _maxConnections = Math.max(...connectionsMap.values());
-    const _maxInputCount = Math.max(...inputCountMap.values());
-    const _maxOutputCount = Math.max(...outputCountMap.values());
-    const depthMap = /* @__PURE__ */ new Map();
-    const visited = /* @__PURE__ */ new Set();
-    const walkGraph = (nodeId, depth, parentId) => {
-      const visitKey = `${parentId}->${nodeId}`;
-      if (visited.has(visitKey)) {
-        return;
-      }
-      visited.add(visitKey);
-      if (!depthMap.has(nodeId)) {
-        depthMap.set(nodeId, depth);
-      }
-      depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
-      const connectedLinks = data.links.filter((link4) => getSourceId(link4) === nodeId);
-      connectedLinks.forEach((link4) => {
-        const connectedNodeId = getTargetId(link4);
-        walkGraph(connectedNodeId, depth + 1, nodeId);
-      });
-    };
-    const roots = data.nodes.filter((d) => d.type === "material" && data.links.filter((l) => getTargetId(l) == d.id).length === 0);
-    roots.forEach((node2) => {
-      if (!depthMap.has(node2.id)) {
-        walkGraph(node2.id, 0, null);
-      }
-    });
-    const _maxDepth = Math.max(...Array.from(depthMap.values()));
+    const { connectionsMap } = calculateConnections(data);
+    const { depthMap } = calculateDepth(data);
     const simulation = simulation_default(data.nodes).force("link", link_default(data.links).id((d) => d.id).distance(5)).force("charge", manyBody_default().strength((d) => {
       const parentsConnections = data.links.flatMap((link4) => {
         const sourceId = getSourceId(link4);
@@ -61488,85 +61585,6 @@ function Legend({ selectedNode }) {
   }, "\u2192"), " Outputs")), /* @__PURE__ */ import_npm_react3.default.createElement("div", {
     className: "legend-help"
   }, "Drag nodes to move them. Scroll to zoom. Hover over nodes for details. Click nodes to open detail panel."));
-}
-
-// src/utils/dataProcessor.js
-function processRecipesData(recipes) {
-  const nodes = /* @__PURE__ */ new Map();
-  const links = [];
-  recipes.forEach((recipe) => {
-    if (!recipe.RecipeId) return;
-    const inputs = [];
-    const outputs = [];
-    for (let i = 1; i <= 6; i++) {
-      const inputName = recipe[`Input${i}Name`];
-      const inputQty = parseInt(recipe[`Input${i}Qty`]) || 0;
-      const outputName = recipe[`Output${i}Name`];
-      const outputQty = parseInt(recipe[`Output${i}Qty`]) || 0;
-      if (inputName && inputQty > 0) {
-        inputs.push({
-          name: inputName,
-          qty: inputQty,
-          icon: recipe[`Input${i}Icon`]
-        });
-      }
-      if (outputName && outputQty > 0) {
-        outputs.push({
-          name: outputName,
-          qty: outputQty,
-          icon: recipe[`Output${i}Icon`]
-        });
-      }
-    }
-    inputs.forEach((input) => {
-      if (!nodes.has(input.name)) {
-        nodes.set(input.name, {
-          id: input.name,
-          name: input.name,
-          icon: input.icon,
-          type: "material"
-        });
-      }
-    });
-    outputs.forEach((output) => {
-      if (!nodes.has(output.name)) {
-        nodes.set(output.name, {
-          id: output.name,
-          name: output.name,
-          icon: output.icon,
-          type: "material"
-        });
-      }
-    });
-    const recipeNodeId = `recipe_${recipe.RecipeId}`;
-    nodes.set(recipeNodeId, {
-      id: recipeNodeId,
-      name: recipe.RecipeId,
-      building: recipe.Building,
-      type: "recipe",
-      time: recipe.Time
-    });
-    inputs.forEach((input) => {
-      links.push({
-        source: input.name,
-        target: recipeNodeId,
-        type: "input",
-        qty: input.qty
-      });
-    });
-    outputs.forEach((output) => {
-      links.push({
-        source: recipeNodeId,
-        target: output.name,
-        type: "output",
-        qty: output.qty
-      });
-    });
-  });
-  return {
-    nodes: Array.from(nodes.values()),
-    links
-  };
 }
 
 // src/app.jsx

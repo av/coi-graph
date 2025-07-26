@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "npm:react";
 import * as d3 from "npm:d3";
 import { theme } from "../theme.js";
+import { calculateConnections, calculateDepth } from "../utils/dataProcessor.js";
 
 export function ForceGraph({ data, selectedNode, onNodeSelect }) {
   const svgRef = useRef();
@@ -86,70 +87,8 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const getTargetId = (link) =>
       typeof link.target === "object" ? link.target.id : link.target;
 
-    // Pre-compute connections for performance
-    const connectionsMap = new Map();
-    data.nodes.forEach((node) => {
-      const connections = data.links.filter((link) =>
-        link.source === node.id || link.target === node.id
-      ).length;
-      connectionsMap.set(node.id, connections);
-    });
-    const inputCountMap = new Map();
-    data.nodes.forEach((node) => {
-      const inputCount = data.links.filter(
-        (link) => link.target === node.id && link.type === "input",
-      ).length;
-      inputCountMap.set(node.id, inputCount);
-    });
-    const outputCountMap = new Map();
-    data.nodes.forEach((node) => {
-      const outputCount = data.links.filter(
-        (link) => link.source === node.id && link.type === "output",
-      ).length;
-      outputCountMap.set(node.id, outputCount);
-    });
-
-    const _maxConnections = Math.max(...connectionsMap.values());
-    const _maxInputCount = Math.max(...inputCountMap.values());
-    const _maxOutputCount = Math.max(...outputCountMap.values());
-
-    const depthMap = new Map();
-    const visited = new Set();
-
-    const walkGraph = (nodeId, depth, parentId) => {
-      const visitKey = `${parentId}->${nodeId}`;
-      if (visited.has(visitKey)) {
-        return;
-      }
-      visited.add(visitKey);
-
-      if (!depthMap.has(nodeId)) {
-        depthMap.set(nodeId, depth);
-      }
-
-      depthMap.set(nodeId, Math.min(depthMap.get(nodeId), depth));
-
-      const connectedLinks = data.links.filter(
-        (link) => getSourceId(link) === nodeId,
-      );
-
-      connectedLinks.forEach((link) => {
-        const connectedNodeId = getTargetId(link);
-        walkGraph(connectedNodeId, depth + 1, nodeId);
-      });
-    };
-
-    const roots = data.nodes.filter((d) =>
-      d.type === "material" &&
-      data.links.filter((l) => getTargetId(l) == d.id).length === 0
-    );
-
-    roots.forEach((node) => {
-      if (!depthMap.has(node.id)) {
-        walkGraph(node.id, 0, null);
-      }
-    });
-    const _maxDepth = Math.max(...Array.from(depthMap.values()));
+    const { connectionsMap } = calculateConnections(data);
+    const { depthMap } = calculateDepth(data);
 
     const simulation = d3.forceSimulation(data.nodes)
       .force(
