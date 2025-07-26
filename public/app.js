@@ -61421,6 +61421,15 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
       return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
     }
+    if (selectedNodeId) {
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === selectedNodeId && targetId === nodeData.id || targetId === selectedNodeId && sourceId === nodeData.id;
+      });
+      return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+    }
     return theme.colors.highlight.opacity.full;
   };
   const getClusterOpacity = (nodeData, hoveredNodeId, selectedNodeId) => {
@@ -61439,6 +61448,15 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
       return isConnected ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
     }
+    if (selectedNodeId) {
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === selectedNodeId && targetId === nodeData.id || targetId === selectedNodeId && sourceId === nodeData.id;
+      });
+      return isConnected ? theme.nodes.cluster.opacity : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+    }
     return theme.nodes.cluster.opacity;
   };
   const getLinkOpacity = (linkData, hoveredNodeId, selectedNodeId) => {
@@ -61452,6 +61470,9 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       return theme.colors.highlight.opacity.full;
     }
     if (hoveredNodeId) {
+      return theme.colors.highlight.opacity.faded;
+    }
+    if (selectedNodeId) {
       return theme.colors.highlight.opacity.faded;
     }
     return linkData.computedOpacity;
@@ -62108,7 +62129,11 @@ function App() {
     onNodeSelect: handleNodeSelect
   })), /* @__PURE__ */ import_npm_react4.default.createElement("div", {
     className: "title-overlay"
-  }, /* @__PURE__ */ import_npm_react4.default.createElement("h1", null, "COI Recipe Graph")), /* @__PURE__ */ import_npm_react4.default.createElement(Legend, {
+  }, /* @__PURE__ */ import_npm_react4.default.createElement("img", {
+    src: "/logo.png",
+    alt: "Logo",
+    className: "logo"
+  }), /* @__PURE__ */ import_npm_react4.default.createElement("h3", null, "Recipe Graph")), /* @__PURE__ */ import_npm_react4.default.createElement(Legend, {
     selectedNode
   }), /* @__PURE__ */ import_npm_react4.default.createElement("div", {
     className: "stats-overlay"

@@ -81,7 +81,8 @@ function App() {
       </div>
 
       <div className="title-overlay">
-        <h1>COI Recipe Graph</h1>
+        <img src="/logo.png" alt="Logo" className="logo" />
+        <h3>Recipe Graph</h3>
       </div>
 
       <Legend selectedNode={selectedNode} />

@@ -39,6 +39,21 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         : theme.colors.highlight.opacity.dimmed;
     }
 
+    // If a node is selected (details panel open), dim unconnected nodes
+    if (selectedNodeId) {
+      // Check if connected to selected node
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return (sourceId === selectedNodeId && targetId === nodeData.id) ||
+          (targetId === selectedNodeId && sourceId === nodeData.id);
+      });
+      return isConnected
+        ? theme.colors.highlight.opacity.full
+        : theme.colors.highlight.opacity.dimmed;
+    }
+
     // Default state - full opacity
     return theme.colors.highlight.opacity.full;
   };
@@ -64,6 +79,21 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       });
       return isConnected
         ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity
+        : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+    }
+
+    // If a node is selected (details panel open), dim unconnected clusters
+    if (selectedNodeId) {
+      // Check if connected to selected node
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return (sourceId === selectedNodeId && targetId === nodeData.id) ||
+          (targetId === selectedNodeId && sourceId === nodeData.id);
+      });
+      return isConnected
+        ? theme.nodes.cluster.opacity
         : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
     }
 
@@ -95,6 +125,11 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
     // If hovering over some other node, fade non-connected links
     if (hoveredNodeId) {
+      return theme.colors.highlight.opacity.faded;
+    }
+
+    // If a node is selected (details panel open), dim unconnected links
+    if (selectedNodeId) {
       return theme.colors.highlight.opacity.faded;
     }
 
