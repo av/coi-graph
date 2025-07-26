@@ -61118,9 +61118,9 @@ var theme = {
       radius: 12
     },
     cluster: {
-      fill: "rgba(0, 0, 0, 1.0)",
+      fill: "#ddd",
       radius: 50,
-      opacity: 0.1
+      opacity: 1
     },
     stroke: "var(--node-stroke)",
     strokeWidth: 2
@@ -61384,10 +61384,10 @@ function clusterNodes(data) {
     links: clusteredLinks
   };
 }
+var getSourceId = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
+var getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
 function preComputeLinkOpacities(data, theme2) {
   const { connectionsMap } = calculateConnections(data);
-  const getSourceId = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
-  const getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
   data.links.forEach((link3) => {
     if (link3.type === "invisible") {
       link3.computedOpacity = 0;
@@ -61402,6 +61402,72 @@ function preComputeLinkOpacities(data, theme2) {
 // src/components/ForceGraph.jsx
 function ForceGraph({ data, selectedNode, onNodeSelect }) {
   const svgRef = (0, import_npm_react.useRef)();
+  const getNodeOpacity = (nodeData, hoveredNodeId, selectedNodeId) => {
+    if (selectedNodeId && nodeData.id === selectedNodeId) {
+      return theme.colors.highlight.opacity.full;
+    }
+    if (hoveredNodeId) {
+      if (nodeData.id === hoveredNodeId) {
+        return theme.colors.highlight.opacity.full;
+      }
+      if (nodeData.isInternal) {
+        return theme.colors.highlight.opacity.dimmed;
+      }
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === hoveredNodeId && targetId === nodeData.id || targetId === hoveredNodeId && sourceId === nodeData.id;
+      });
+      return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
+    }
+    return theme.colors.highlight.opacity.full;
+  };
+  const getClusterOpacity = (nodeData, hoveredNodeId, selectedNodeId) => {
+    if (selectedNodeId && nodeData.id === selectedNodeId) {
+      return theme.nodes.cluster.opacity;
+    }
+    if (hoveredNodeId) {
+      if (nodeData.id === hoveredNodeId) {
+        return theme.nodes.cluster.opacity;
+      }
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return sourceId === hoveredNodeId && targetId === nodeData.id || targetId === hoveredNodeId && sourceId === nodeData.id;
+      });
+      return isConnected ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+    }
+    return theme.nodes.cluster.opacity;
+  };
+  const getLinkOpacity = (linkData, hoveredNodeId, selectedNodeId) => {
+    const sourceId = getSourceId(linkData);
+    const targetId = getTargetId(linkData);
+    if (linkData.type === "invisible") return 0;
+    if (selectedNodeId && (sourceId === selectedNodeId || targetId === selectedNodeId)) {
+      return theme.colors.highlight.opacity.full;
+    }
+    if (hoveredNodeId && (sourceId === hoveredNodeId || targetId === hoveredNodeId)) {
+      return theme.colors.highlight.opacity.full;
+    }
+    if (hoveredNodeId) {
+      return theme.colors.highlight.opacity.faded;
+    }
+    return linkData.computedOpacity;
+  };
+  const getLinkWidth = (linkData, hoveredNodeId, selectedNodeId) => {
+    const sourceId = getSourceId(linkData);
+    const targetId = getTargetId(linkData);
+    if (linkData.type === "invisible") return theme.links.width.default;
+    if (selectedNodeId && (sourceId === selectedNodeId || targetId === selectedNodeId)) {
+      return theme.links.width.highlighted;
+    }
+    if (hoveredNodeId && (sourceId === hoveredNodeId || targetId === hoveredNodeId)) {
+      return theme.links.width.highlighted;
+    }
+    return theme.links.width.normal;
+  };
   (0, import_npm_react.useEffect)(() => {
     if (!data || !data.nodes.length) return;
     const svg2 = select_default2(svgRef.current);
@@ -61429,8 +61495,6 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
     defs.append("marker").attr("id", "arrowhead-recipe").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     defs.append("marker").attr("id", "arrowhead-material").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
     defs.append("marker").attr("id", "arrowhead-cluster").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "context-stroke");
-    const getSourceId = (link4) => typeof link4.source === "object" ? link4.source.id : link4.source;
-    const getTargetId = (link4) => typeof link4.target === "object" ? link4.target.id : link4.target;
     const getNodeRadius = (node2) => {
       if (node2.type === "cluster") return 50;
       if (node2.isInternal) return 6;
@@ -61530,53 +61594,19 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       tooltip.style("visibility", "visible").html(tooltipContent).style("left", event.pageX + 20 + "px").style("top", event.pageY - 20 + "px");
       const hoveredNode = select_default2(this.parentNode);
       hoveredNode.raise();
-      link3.attr("stroke-opacity", (linkData) => {
-        if (linkData.type === "invisible") return 0;
-        const sourceId = getSourceId(linkData);
-        const targetId = getTargetId(linkData);
-        return sourceId === d.id || targetId === d.id ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.faded;
-      }).attr("stroke-width", (linkData) => {
-        if (linkData.type === "invisible") return theme.links.width.default;
-        const sourceId = getSourceId(linkData);
-        const targetId = getTargetId(linkData);
-        return sourceId === d.id || targetId === d.id ? theme.links.width.highlighted : theme.links.width.normal;
-      });
-      node.select("circle").attr("opacity", (nodeData2) => {
-        const isConnected = data.links.some((linkData) => {
-          if (linkData.type === "invisible") return false;
-          const sourceId = getSourceId(linkData);
-          const targetId = getTargetId(linkData);
-          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
-        });
-        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
-      });
-      node.select("text").attr("y", 12).attr("opacity", (nodeData2) => {
-        const isConnected = data.links.some((linkData) => {
-          if (linkData.type === "invisible") return false;
-          const sourceId = getSourceId(linkData);
-          const targetId = getTargetId(linkData);
-          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
-        });
-        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
-      });
-      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData2) => {
-        if (nodeData2.id === d.id) {
-          return theme.nodes.cluster.opacity;
-        }
-        const isConnected = data.links.some((linkData) => {
-          if (linkData.type === "invisible") return false;
-          const sourceId = getSourceId(linkData);
-          const targetId = getTargetId(linkData);
-          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
-        });
-        return isConnected ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
-      });
+      const hoveredNodeId = d.id;
+      const selectedNodeId = selectedNode?.id;
+      link3.attr("stroke-opacity", (linkData) => getLinkOpacity(linkData, hoveredNodeId, selectedNodeId)).attr("stroke-width", (linkData) => getLinkWidth(linkData, hoveredNodeId, selectedNodeId));
+      node.select("circle").attr("opacity", (nodeData2) => getNodeOpacity(nodeData2, hoveredNodeId, selectedNodeId));
+      node.select("text").attr("y", 12).attr("opacity", (nodeData2) => getNodeOpacity(nodeData2, hoveredNodeId, selectedNodeId));
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData2) => getClusterOpacity(nodeData2, hoveredNodeId, selectedNodeId));
     }).on("mouseout", function(_event, _d) {
       tooltip.style("visibility", "hidden");
-      link3.attr("stroke-opacity", (d) => d.computedOpacity).attr("stroke-width", theme.links.width.normal);
-      node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
-      node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
-      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", theme.nodes.cluster.opacity);
+      const selectedNodeId = selectedNode?.id;
+      link3.attr("stroke-opacity", (linkData) => getLinkOpacity(linkData, null, selectedNodeId)).attr("stroke-width", (linkData) => getLinkWidth(linkData, null, selectedNodeId));
+      node.select("circle").attr("opacity", (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId));
+      node.select("text").attr("opacity", (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId));
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData) => getClusterOpacity(nodeData, null, selectedNodeId));
     });
     node.append("circle").attr("r", (d) => {
       if (d.isInternal) return 6;
@@ -61653,62 +61683,19 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
       tooltip.style("visibility", "visible").html(tooltipContent).style("left", event.pageX + 20 + "px").style("top", event.pageY - 20 + "px");
       const hoveredNode = select_default2(this.parentNode);
       hoveredNode.raise();
-      link3.attr("stroke-opacity", (linkData) => {
-        if (linkData.type === "invisible") return 0;
-        const sourceId = getSourceId(linkData);
-        const targetId = getTargetId(linkData);
-        return sourceId === d.id || targetId === d.id ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.faded;
-      }).attr("stroke-width", (linkData) => {
-        if (linkData.type === "invisible") return theme.links.width.default;
-        const sourceId = getSourceId(linkData);
-        const targetId = getTargetId(linkData);
-        return sourceId === d.id || targetId === d.id ? theme.links.width.highlighted : theme.links.width.normal;
-      });
-      node.select("circle").attr("opacity", (nodeData2) => {
-        if (nodeData2.id === d.id) {
-          return theme.colors.highlight.opacity.full;
-        }
-        if (nodeData2.isInternal) {
-          return theme.colors.highlight.opacity.dimmed;
-        }
-        const isConnected = data.links.some((linkData) => {
-          if (linkData.type === "invisible") return false;
-          const sourceId = getSourceId(linkData);
-          const targetId = getTargetId(linkData);
-          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
-        });
-        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
-      });
-      node.select("text").attr("opacity", (nodeData2) => {
-        if (nodeData2.id === d.id) {
-          return theme.colors.highlight.opacity.full;
-        }
-        if (nodeData2.isInternal) {
-          return theme.colors.highlight.opacity.dimmed;
-        }
-        const isConnected = data.links.some((linkData) => {
-          if (linkData.type === "invisible") return false;
-          const sourceId = getSourceId(linkData);
-          const targetId = getTargetId(linkData);
-          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
-        });
-        return isConnected ? theme.colors.highlight.opacity.full : theme.colors.highlight.opacity.dimmed;
-      });
-      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData2) => {
-        const isConnected = data.links.some((linkData) => {
-          if (linkData.type === "invisible") return false;
-          const sourceId = getSourceId(linkData);
-          const targetId = getTargetId(linkData);
-          return sourceId === d.id && targetId === nodeData2.id || targetId === d.id && sourceId === nodeData2.id;
-        });
-        return isConnected ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
-      });
+      const hoveredNodeId = d.id;
+      const selectedNodeId = selectedNode?.id;
+      link3.attr("stroke-opacity", (linkData) => getLinkOpacity(linkData, hoveredNodeId, selectedNodeId)).attr("stroke-width", (linkData) => getLinkWidth(linkData, hoveredNodeId, selectedNodeId));
+      node.select("circle").attr("opacity", (nodeData2) => getNodeOpacity(nodeData2, hoveredNodeId, selectedNodeId));
+      node.select("text").attr("opacity", (nodeData2) => getNodeOpacity(nodeData2, hoveredNodeId, selectedNodeId));
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData2) => getClusterOpacity(nodeData2, hoveredNodeId, selectedNodeId));
     }).on("mouseout", function(_event, _d) {
       tooltip.style("visibility", "hidden");
-      link3.attr("stroke-opacity", (d) => d.computedOpacity).attr("stroke-width", theme.links.width.normal);
-      node.select("circle").attr("opacity", theme.colors.highlight.opacity.full);
-      node.select("text").attr("opacity", theme.colors.highlight.opacity.full);
-      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", theme.nodes.cluster.opacity);
+      const selectedNodeId = selectedNode?.id;
+      link3.attr("stroke-opacity", (linkData) => getLinkOpacity(linkData, null, selectedNodeId)).attr("stroke-width", (linkData) => getLinkWidth(linkData, null, selectedNodeId));
+      node.select("circle").attr("opacity", (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId));
+      node.select("text").attr("opacity", (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId));
+      clusterNodeGroup.selectAll("g").select("circle").attr("opacity", (nodeData) => getClusterOpacity(nodeData, null, selectedNodeId));
     });
     clusterNodeGroup.selectAll("g").append("text").text((d) => d.name).attr("font-size", "12px").attr("font-family", theme.text.family).attr("text-anchor", "middle").attr("dy", 65).attr("fill", "#333333").attr("font-weight", "bold").style("pointer-events", "none");
     node.append("text").text((d) => {
@@ -61818,6 +61805,14 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
         svg2.transition().duration(750).call(zoom.transform, identity5.translate(x4, y4).scale(scale2));
       }
     }
+    if (svgRef.current) {
+      const svg2 = select_default2(svgRef.current);
+      const selectedNodeId = selectedNode?.id;
+      svg2.selectAll("line").attr("stroke-opacity", (linkData) => getLinkOpacity(linkData, null, selectedNodeId)).attr("stroke-width", (linkData) => getLinkWidth(linkData, null, selectedNodeId));
+      svg2.select(".regular-nodes").selectAll("g").select("circle").attr("opacity", (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId));
+      svg2.select(".regular-nodes").selectAll("g").select("text").attr("opacity", (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId));
+      svg2.select(".cluster-nodes").selectAll("g").select("circle").attr("opacity", (nodeData) => getClusterOpacity(nodeData, null, selectedNodeId));
+    }
   }, [
     selectedNode,
     data
@@ -61831,8 +61826,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
 var import_npm_react2 = __toESM(require__());
 function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
   if (!node) return null;
-  const getSourceId = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
-  const getTargetId = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
+  const getSourceId2 = (link3) => typeof link3.source === "object" ? link3.source.id : link3.source;
+  const getTargetId2 = (link3) => typeof link3.target === "object" ? link3.target.id : link3.target;
   const renderNodeLink = (nodeName, isRecipe = false) => {
     const displayName = isRecipe ? nodeName.replace("recipe_", "") : nodeName;
     return /* @__PURE__ */ import_npm_react2.default.createElement("span", {
@@ -61870,10 +61865,10 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       className: "cluster-recipe-meta"
     }, /* @__PURE__ */ import_npm_react2.default.createElement("div", null, /* @__PURE__ */ import_npm_react2.default.createElement("strong", null, "Building:"), " ", clusterNode.building), /* @__PURE__ */ import_npm_react2.default.createElement("div", null, /* @__PURE__ */ import_npm_react2.default.createElement("strong", null, "Time:"), " ", clusterNode.time, "s")), (() => {
       const recipeInputs = data.links.filter((link3) => {
-        const targetId = getTargetId(link3);
+        const targetId = getTargetId2(link3);
         return targetId === node.id && link3.type === "input";
       }).map((link3) => {
-        const sourceId = getSourceId(link3);
+        const sourceId = getSourceId2(link3);
         return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
           key: sourceId,
           className: "recipe-item"
@@ -61888,10 +61883,10 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       }, "Inputs:"), recipeInputs) : null;
     })(), (() => {
       const recipeOutputs = data.links.filter((link3) => {
-        const sourceId = getSourceId(link3);
+        const sourceId = getSourceId2(link3);
         return sourceId === node.id && link3.type === "output";
       }).map((link3) => {
-        const targetId = getTargetId(link3);
+        const targetId = getTargetId2(link3);
         return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
           key: targetId,
           className: "recipe-item"
@@ -61908,20 +61903,20 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       className: "cluster-material-full-details"
     }, (() => {
       const usedInRecipes = data.links.filter((link3) => {
-        const sourceId = getSourceId(link3);
+        const sourceId = getSourceId2(link3);
         return sourceId === node.id && link3.type === "input";
       }).map((link3) => {
-        const targetId = getTargetId(link3);
+        const targetId = getTargetId2(link3);
         return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
           key: targetId,
           className: "recipe-item"
         }, renderNodeLink(targetId, true));
       });
       const producedByRecipes = data.links.filter((link3) => {
-        const targetId = getTargetId(link3);
+        const targetId = getTargetId2(link3);
         return targetId === node.id && link3.type === "output";
       }).map((link3) => {
-        const sourceId = getSourceId(link3);
+        const sourceId = getSourceId2(link3);
         return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
           key: sourceId,
           className: "recipe-item"
@@ -61943,10 +61938,10 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
     })())))));
   } else if (node.type === "recipe") {
     const inputs = data.links.filter((link3) => {
-      const targetId = getTargetId(link3);
+      const targetId = getTargetId2(link3);
       return targetId === node.id && link3.type === "input";
     }).map((link3) => {
-      const sourceId = getSourceId(link3);
+      const sourceId = getSourceId2(link3);
       return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
         key: sourceId,
         className: "recipe-item"
@@ -61955,10 +61950,10 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
       }, "(", link3.qty, ")"));
     });
     const outputs = data.links.filter((link3) => {
-      const sourceId = getSourceId(link3);
+      const sourceId = getSourceId2(link3);
       return sourceId === node.id && link3.type === "output";
     }).map((link3) => {
-      const targetId = getTargetId(link3);
+      const targetId = getTargetId2(link3);
       return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
         key: targetId,
         className: "recipe-item"
@@ -61981,20 +61976,20 @@ function DetailPanel({ node, data, onClose, onNodeLinkClick }) {
     }, "Outputs:"), outputs));
   } else {
     const usedInRecipes = data.links.filter((link3) => {
-      const sourceId = getSourceId(link3);
+      const sourceId = getSourceId2(link3);
       return sourceId === node.id && link3.type === "input";
     }).map((link3) => {
-      const targetId = getTargetId(link3);
+      const targetId = getTargetId2(link3);
       return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
         key: targetId,
         className: "recipe-item"
       }, renderNodeLink(targetId, true));
     });
     const producedByRecipes = data.links.filter((link3) => {
-      const targetId = getTargetId(link3);
+      const targetId = getTargetId2(link3);
       return targetId === node.id && link3.type === "output";
     }).map((link3) => {
-      const sourceId = getSourceId(link3);
+      const sourceId = getSourceId2(link3);
       return /* @__PURE__ */ import_npm_react2.default.createElement("div", {
         key: sourceId,
         className: "recipe-item"

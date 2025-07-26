@@ -303,13 +303,13 @@ export function clusterNodes(data) {
   };
 }
 
+export const getSourceId = (link) =>
+  typeof link.source === "object" ? link.source.id : link.source;
+export const getTargetId = (link) =>
+  typeof link.target === "object" ? link.target.id : link.target;
+
 export function preComputeLinkOpacities(data, theme) {
   const { connectionsMap } = calculateConnections(data);
-
-  const getSourceId = (link) =>
-    typeof link.source === "object" ? link.source.id : link.source;
-  const getTargetId = (link) =>
-    typeof link.target === "object" ? link.target.id : link.target;
 
   data.links.forEach(link => {
     if (link.type === "invisible") {

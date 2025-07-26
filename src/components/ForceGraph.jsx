@@ -4,10 +4,129 @@ import { theme } from "../theme.js";
 import {
   calculateConnections,
   calculateDepth,
+  getSourceId,
+  getTargetId,
 } from "../utils/dataProcessor.js";
 
 export function ForceGraph({ data, selectedNode, onNodeSelect }) {
   const svgRef = useRef();
+
+  // Helper functions for managing highlight state
+  const getNodeOpacity = (nodeData, hoveredNodeId, selectedNodeId) => {
+    // If this is the selected node (details panel open), always highlight
+    if (selectedNodeId && nodeData.id === selectedNodeId) {
+      return theme.colors.highlight.opacity.full;
+    }
+
+    // If hovering over a node, apply hover highlighting rules
+    if (hoveredNodeId) {
+      if (nodeData.id === hoveredNodeId) {
+        return theme.colors.highlight.opacity.full;
+      }
+      if (nodeData.isInternal) {
+        return theme.colors.highlight.opacity.dimmed;
+      }
+      // Check if connected to hovered node
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return (sourceId === hoveredNodeId && targetId === nodeData.id) ||
+          (targetId === hoveredNodeId && sourceId === nodeData.id);
+      });
+      return isConnected
+        ? theme.colors.highlight.opacity.full
+        : theme.colors.highlight.opacity.dimmed;
+    }
+
+    // Default state - full opacity
+    return theme.colors.highlight.opacity.full;
+  };
+
+  const getClusterOpacity = (nodeData, hoveredNodeId, selectedNodeId) => {
+    // If this is the selected node (details panel open), always highlight
+    if (selectedNodeId && nodeData.id === selectedNodeId) {
+      return theme.nodes.cluster.opacity;
+    }
+
+    // If hovering over a node, apply hover highlighting rules
+    if (hoveredNodeId) {
+      if (nodeData.id === hoveredNodeId) {
+        return theme.nodes.cluster.opacity;
+      }
+      // Check if connected to hovered node
+      const isConnected = data.links.some((linkData) => {
+        if (linkData.type === "invisible") return false;
+        const sourceId = getSourceId(linkData);
+        const targetId = getTargetId(linkData);
+        return (sourceId === hoveredNodeId && targetId === nodeData.id) ||
+          (targetId === hoveredNodeId && sourceId === nodeData.id);
+      });
+      return isConnected
+        ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity
+        : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
+    }
+
+    // Default state
+    return theme.nodes.cluster.opacity;
+  };
+
+  const getLinkOpacity = (linkData, hoveredNodeId, selectedNodeId) => {
+    const sourceId = getSourceId(linkData);
+    const targetId = getTargetId(linkData);
+
+    if (linkData.type === "invisible") return 0;
+
+    // If details panel is open and link is connected to selected node, highlight it
+    if (
+      selectedNodeId &&
+      (sourceId === selectedNodeId || targetId === selectedNodeId)
+    ) {
+      return theme.colors.highlight.opacity.full;
+    }
+
+    // If hovering and link is connected to hovered node, highlight it
+    if (
+      hoveredNodeId &&
+      (sourceId === hoveredNodeId || targetId === hoveredNodeId)
+    ) {
+      return theme.colors.highlight.opacity.full;
+    }
+
+    // If hovering over some other node, fade non-connected links
+    if (hoveredNodeId) {
+      return theme.colors.highlight.opacity.faded;
+    }
+
+    // Default state
+    return linkData.computedOpacity;
+  };
+
+  const getLinkWidth = (linkData, hoveredNodeId, selectedNodeId) => {
+    const sourceId = getSourceId(linkData);
+    const targetId = getTargetId(linkData);
+
+    if (linkData.type === "invisible") return theme.links.width.default;
+
+    // If details panel is open and link is connected to selected node, highlight it
+    if (
+      selectedNodeId &&
+      (sourceId === selectedNodeId || targetId === selectedNodeId)
+    ) {
+      return theme.links.width.highlighted;
+    }
+
+    // If hovering and link is connected to hovered node, highlight it
+    if (
+      hoveredNodeId &&
+      (sourceId === hoveredNodeId || targetId === hoveredNodeId)
+    ) {
+      return theme.links.width.highlighted;
+    }
+
+    // Default state
+    return theme.links.width.normal;
+  };
 
   useEffect(() => {
     if (!data || !data.nodes.length) return;
@@ -98,11 +217,6 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "context-stroke");
 
-    const getSourceId = (link) =>
-      typeof link.source === "object" ? link.source.id : link.source;
-    const getTargetId = (link) =>
-      typeof link.target === "object" ? link.target.id : link.target;
-
     const getNodeRadius = (node) => {
       if (node.type === "cluster") return 50;
       if (node.isInternal) return 6;
@@ -132,8 +246,9 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
 
       if (clusterNode.clusteredNodes) {
         clusterNode.clusteredNodes.forEach((internalNode, index) => {
-          const angle = (Math.PI / 3) + (index / clusterNode.clusteredNodes.length) * 2 *
-            Math.PI;
+          const angle = (Math.PI / 3) +
+            (index / clusterNode.clusteredNodes.length) * 2 *
+              Math.PI;
           const radius = 30;
           const internalNodeCopy = {
             ...internalNode,
@@ -196,11 +311,11 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         }).strength((d) => d.isInternal ? 0 : 0.1),
       )
       .force(
-        'x',
+        "x",
         d3.forceX().x(width / 2).strength(0.01),
       )
       .force(
-        'y',
+        "y",
         d3.forceY().y(height / 2).strength(0.01),
       )
       .alphaDecay(0.01);
@@ -222,7 +337,9 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
       .attr("marker-end", (d) => {
         if (d.type === "invisible") return "none";
         const targetId = getTargetId(d);
-        const targetNode = allNodesWithPositions.find((node) => node.id === targetId);
+        const targetNode = allNodesWithPositions.find((node) =>
+          node.id === targetId
+        );
         if (targetNode && targetNode.type === "cluster") {
           return "url(#arrowhead-cluster)";
         }
@@ -236,7 +353,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const clusterNodeGroup = g.append("g").attr("class", "cluster-nodes");
     const _clusterNodes = clusterNodeGroup
       .selectAll("g")
-      .data(allNodesWithPositions.filter(d => d.type === "cluster"))
+      .data(allNodesWithPositions.filter((d) => d.type === "cluster"))
       .join("g")
       .call(
         d3.drag()
@@ -249,7 +366,7 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
     const regularNodeGroup = g.append("g").attr("class", "regular-nodes");
     const node = regularNodeGroup
       .selectAll("g")
-      .data(allNodesWithPositions.filter(d => d.type !== "cluster"))
+      .data(allNodesWithPositions.filter((d) => d.type !== "cluster"))
       .join("g")
       .call(
         d3.drag()
@@ -304,91 +421,82 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         const hoveredNode = d3.select(this.parentNode);
         hoveredNode.raise();
 
+        // Apply highlighting with new rules
+        const hoveredNodeId = d.id;
+        const selectedNodeId = selectedNode?.id;
+
         // Highlight connected links
         link
-          .attr("stroke-opacity", (linkData) => {
-            if (linkData.type === "invisible") return 0;
-            const sourceId = getSourceId(linkData);
-            const targetId = getTargetId(linkData);
-            return (sourceId === d.id || targetId === d.id)
-              ? theme.colors.highlight.opacity.full
-              : theme.colors.highlight.opacity.faded;
-          })
-          .attr("stroke-width", (linkData) => {
-            if (linkData.type === "invisible") return theme.links.width.default;
-            const sourceId = getSourceId(linkData);
-            const targetId = getTargetId(linkData);
-            return (sourceId === d.id || targetId === d.id)
-              ? theme.links.width.highlighted
-              : theme.links.width.normal;
-          });
+          .attr(
+            "stroke-opacity",
+            (linkData) =>
+              getLinkOpacity(linkData, hoveredNodeId, selectedNodeId),
+          )
+          .attr(
+            "stroke-width",
+            (linkData) => getLinkWidth(linkData, hoveredNodeId, selectedNodeId),
+          );
 
         // Highlight connected nodes
         node.select("circle")
-          .attr("opacity", (nodeData) => {
-            const isConnected = data.links.some((linkData) => {
-              if (linkData.type === "invisible") return false;
-              const sourceId = getSourceId(linkData);
-              const targetId = getTargetId(linkData);
-              return (sourceId === d.id && targetId === nodeData.id) ||
-                (targetId === d.id && sourceId === nodeData.id);
-            });
-            return isConnected
-              ? theme.colors.highlight.opacity.full
-              : theme.colors.highlight.opacity.dimmed;
-          });
+          .attr(
+            "opacity",
+            (nodeData) =>
+              getNodeOpacity(nodeData, hoveredNodeId, selectedNodeId),
+          );
 
         node.select("text")
-          .attr('y', 12)
-          .attr("opacity", (nodeData) => {
-            const isConnected = data.links.some((linkData) => {
-              if (linkData.type === "invisible") return false;
-              const sourceId = getSourceId(linkData);
-              const targetId = getTargetId(linkData);
-              return (sourceId === d.id && targetId === nodeData.id) ||
-                (targetId === d.id && sourceId === nodeData.id);
-            });
-            return isConnected
-              ? theme.colors.highlight.opacity.full
-              : theme.colors.highlight.opacity.dimmed;
-          });
+          .attr("y", 12)
+          .attr(
+            "opacity",
+            (nodeData) =>
+              getNodeOpacity(nodeData, hoveredNodeId, selectedNodeId),
+          );
 
         // Highlight other cluster nodes if connected
         clusterNodeGroup.selectAll("g").select("circle")
-          .attr("opacity", (nodeData) => {
-            if (nodeData.id === d.id) {
-              return theme.nodes.cluster.opacity; // Keep current cluster at normal opacity
-            }
-            const isConnected = data.links.some((linkData) => {
-              if (linkData.type === "invisible") return false;
-              const sourceId = getSourceId(linkData);
-              const targetId = getTargetId(linkData);
-              return (sourceId === d.id && targetId === nodeData.id) ||
-                (targetId === d.id && sourceId === nodeData.id);
-            });
-            return isConnected
-              ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity
-              : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
-          });
+          .attr(
+            "opacity",
+            (nodeData) =>
+              getClusterOpacity(nodeData, hoveredNodeId, selectedNodeId),
+          );
       })
       .on("mouseout", function (_event, _d) {
         tooltip.style("visibility", "hidden");
 
-        // Reset all links
+        // Reset to selected node highlighting state
+        const selectedNodeId = selectedNode?.id;
+
+        // Reset all links to reflect selected node state or default
         link
-          .attr("stroke-opacity", (d) => d.computedOpacity)
-          .attr("stroke-width", theme.links.width.normal);
+          .attr(
+            "stroke-opacity",
+            (linkData) => getLinkOpacity(linkData, null, selectedNodeId),
+          )
+          .attr(
+            "stroke-width",
+            (linkData) => getLinkWidth(linkData, null, selectedNodeId),
+          );
 
         // Reset all regular and internal nodes
         node.select("circle")
-          .attr("opacity", theme.colors.highlight.opacity.full);
+          .attr(
+            "opacity",
+            (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId),
+          );
 
         node.select("text")
-          .attr("opacity", theme.colors.highlight.opacity.full);
+          .attr(
+            "opacity",
+            (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId),
+          );
 
         // Reset cluster nodes
         clusterNodeGroup.selectAll("g").select("circle")
-          .attr("opacity", theme.nodes.cluster.opacity);
+          .attr(
+            "opacity",
+            (nodeData) => getClusterOpacity(nodeData, null, selectedNodeId),
+          );
       });
 
     // Add circles to regular and internal nodes
@@ -533,99 +641,81 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
         const hoveredNode = d3.select(this.parentNode);
         hoveredNode.raise();
 
+        // Apply highlighting with new rules
+        const hoveredNodeId = d.id;
+        const selectedNodeId = selectedNode?.id;
+
         // Highlight connected links
         link
-          .attr("stroke-opacity", (linkData) => {
-            if (linkData.type === "invisible") return 0;
-            const sourceId = getSourceId(linkData);
-            const targetId = getTargetId(linkData);
-            return (sourceId === d.id || targetId === d.id)
-              ? theme.colors.highlight.opacity.full
-              : theme.colors.highlight.opacity.faded;
-          })
-          .attr("stroke-width", (linkData) => {
-            if (linkData.type === "invisible") return theme.links.width.default;
-            const sourceId = getSourceId(linkData);
-            const targetId = getTargetId(linkData);
-            return (sourceId === d.id || targetId === d.id)
-              ? theme.links.width.highlighted
-              : theme.links.width.normal;
-          });
+          .attr(
+            "stroke-opacity",
+            (linkData) =>
+              getLinkOpacity(linkData, hoveredNodeId, selectedNodeId),
+          )
+          .attr(
+            "stroke-width",
+            (linkData) => getLinkWidth(linkData, hoveredNodeId, selectedNodeId),
+          );
 
         // Highlight connected nodes
         node.select("circle")
-          .attr("opacity", (nodeData) => {
-            if (nodeData.id === d.id) {
-              return theme.colors.highlight.opacity.full;
-            }
-            if (nodeData.isInternal) {
-              return theme.colors.highlight.opacity.dimmed;
-            }
-            const isConnected = data.links.some((linkData) => {
-              if (linkData.type === "invisible") return false;
-              const sourceId = getSourceId(linkData);
-              const targetId = getTargetId(linkData);
-              return (sourceId === d.id && targetId === nodeData.id) ||
-                (targetId === d.id && sourceId === nodeData.id);
-            });
-            return isConnected
-              ? theme.colors.highlight.opacity.full
-              : theme.colors.highlight.opacity.dimmed;
-          });
+          .attr(
+            "opacity",
+            (nodeData) =>
+              getNodeOpacity(nodeData, hoveredNodeId, selectedNodeId),
+          );
 
         node.select("text")
-          .attr("opacity", (nodeData) => {
-            if (nodeData.id === d.id) {
-              return theme.colors.highlight.opacity.full;
-            }
-            if (nodeData.isInternal) {
-              return theme.colors.highlight.opacity.dimmed;
-            }
-            const isConnected = data.links.some((linkData) => {
-              if (linkData.type === "invisible") return false;
-              const sourceId = getSourceId(linkData);
-              const targetId = getTargetId(linkData);
-              return (sourceId === d.id && targetId === nodeData.id) ||
-                (targetId === d.id && sourceId === nodeData.id);
-            });
-            return isConnected
-              ? theme.colors.highlight.opacity.full
-              : theme.colors.highlight.opacity.dimmed;
-          });
+          .attr(
+            "opacity",
+            (nodeData) =>
+              getNodeOpacity(nodeData, hoveredNodeId, selectedNodeId),
+          );
 
         // Highlight cluster nodes if connected
         clusterNodeGroup.selectAll("g").select("circle")
-          .attr("opacity", (nodeData) => {
-            const isConnected = data.links.some((linkData) => {
-              if (linkData.type === "invisible") return false;
-              const sourceId = getSourceId(linkData);
-              const targetId = getTargetId(linkData);
-              return (sourceId === d.id && targetId === nodeData.id) ||
-                (targetId === d.id && sourceId === nodeData.id);
-            });
-            return isConnected
-              ? theme.colors.highlight.opacity.full * theme.nodes.cluster.opacity
-              : theme.colors.highlight.opacity.dimmed * theme.nodes.cluster.opacity;
-          });
+          .attr(
+            "opacity",
+            (nodeData) =>
+              getClusterOpacity(nodeData, hoveredNodeId, selectedNodeId),
+          );
       })
       .on("mouseout", function (_event, _d) {
         tooltip.style("visibility", "hidden");
 
-        // Reset all links
+        // Reset to selected node highlighting state
+        const selectedNodeId = selectedNode?.id;
+
+        // Reset all links to reflect selected node state or default
         link
-          .attr("stroke-opacity", (d) => d.computedOpacity)
-          .attr("stroke-width", theme.links.width.normal);
+          .attr(
+            "stroke-opacity",
+            (linkData) => getLinkOpacity(linkData, null, selectedNodeId),
+          )
+          .attr(
+            "stroke-width",
+            (linkData) => getLinkWidth(linkData, null, selectedNodeId),
+          );
 
         // Reset all regular and internal nodes
         node.select("circle")
-          .attr("opacity", theme.colors.highlight.opacity.full);
+          .attr(
+            "opacity",
+            (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId),
+          );
 
         node.select("text")
-          .attr("opacity", theme.colors.highlight.opacity.full);
+          .attr(
+            "opacity",
+            (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId),
+          );
 
         // Reset cluster nodes
         clusterNodeGroup.selectAll("g").select("circle")
-          .attr("opacity", theme.nodes.cluster.opacity);
+          .attr(
+            "opacity",
+            (nodeData) => getClusterOpacity(nodeData, null, selectedNodeId),
+          );
       });
 
     // Add text labels to cluster nodes
@@ -784,6 +874,43 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           .duration(750)
           .call(zoom.transform, d3.zoomIdentity.translate(x, y).scale(scale));
       }
+    }
+
+    // Apply highlighting based on selected node state
+    if (svgRef.current) {
+      const svg = d3.select(svgRef.current);
+      const selectedNodeId = selectedNode?.id;
+
+      // Update all links to reflect selected node state
+      svg.selectAll("line")
+        .attr(
+          "stroke-opacity",
+          (linkData) => getLinkOpacity(linkData, null, selectedNodeId),
+        )
+        .attr(
+          "stroke-width",
+          (linkData) => getLinkWidth(linkData, null, selectedNodeId),
+        );
+
+      // Update all regular and internal nodes
+      svg.select(".regular-nodes").selectAll("g").select("circle")
+        .attr(
+          "opacity",
+          (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId),
+        );
+
+      svg.select(".regular-nodes").selectAll("g").select("text")
+        .attr(
+          "opacity",
+          (nodeData) => getNodeOpacity(nodeData, null, selectedNodeId),
+        );
+
+      // Update cluster nodes
+      svg.select(".cluster-nodes").selectAll("g").select("circle")
+        .attr(
+          "opacity",
+          (nodeData) => getClusterOpacity(nodeData, null, selectedNodeId),
+        );
     }
   }, [selectedNode, data]);
 

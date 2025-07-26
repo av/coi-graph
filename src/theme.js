@@ -32,9 +32,9 @@ export const theme = {
       radius: 12,
     },
     cluster: {
-      fill: "rgba(0, 0, 0, 1.0)",
+      fill: "#ddd",
       radius: 50,
-      opacity: 0.1,
+      opacity: 1.0,
     },
     stroke: "var(--node-stroke)",
     strokeWidth: 2,
