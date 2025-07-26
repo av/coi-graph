@@ -61268,6 +61268,8 @@ function ForceGraph({ data, selectedNode, onNodeSelect }) {
           `;
       }
       tooltip.style("visibility", "visible").html(tooltipContent).style("left", event.pageX + 20 + "px").style("top", event.pageY - 20 + "px");
+      const hoveredNode = select_default2(this.parentNode);
+      hoveredNode.raise();
       link3.attr("stroke-opacity", (linkData) => {
         const sourceId = getSourceId(linkData);
         const targetId = getTargetId(linkData);

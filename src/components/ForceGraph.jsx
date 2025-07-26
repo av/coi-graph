@@ -338,6 +338,10 @@ export function ForceGraph({ data, selectedNode, onNodeSelect }) {
           .style("left", (event.pageX + 20) + "px")
           .style("top", (event.pageY - 20) + "px");
 
+        // Move hovered node to front by re-appending it
+        const hoveredNode = d3.select(this.parentNode);
+        hoveredNode.raise();
+
         // Highlight connected links
         link
           .attr("stroke-opacity", (linkData) => {
