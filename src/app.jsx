@@ -81,7 +81,7 @@ function App() {
       </div>
 
       <div className="title-overlay">
-        <img src="/logo.png" alt="Logo" className="logo" />
+        <img src="logo.png" alt="Logo" className="logo" />
         <h3>Recipe Graph</h3>
       </div>
 

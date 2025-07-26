@@ -62135,7 +62135,7 @@ function App() {
   })), /* @__PURE__ */ import_npm_react4.default.createElement("div", {
     className: "title-overlay"
   }, /* @__PURE__ */ import_npm_react4.default.createElement("img", {
-    src: "/logo.png",
+    src: "logo.png",
     alt: "Logo",
     className: "logo"
   }), /* @__PURE__ */ import_npm_react4.default.createElement("h3", null, "Recipe Graph")), /* @__PURE__ */ import_npm_react4.default.createElement(Legend, {
